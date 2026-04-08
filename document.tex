@@ -3,15 +3,10 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,calc}
-\usepackage{algorithm}
-\usepackage{algpseudocode}
-\usepackage{enumitem}
-\usepackage{hyperref}
+\usetikzlibrary{arrows.meta}
 
 \newtheorem{definition}{Definition}
 \newtheorem{theorem}{Theorem}
-\newtheorem{corollary}{Corollary}
 
 \title{From Matchings to Max-Flow Min-Cut}
 \author{Daniel Mortensen}
@@ -19,27 +14,21 @@
 
 \begin{document}
 \maketitle
-
 \tableofcontents
 \newpage
 
 % =====================================================================
 \section{Matchings and Alternating Paths}
-\label{sec:matchings}
 % =====================================================================
 
-% ---------------------------------------------------------------------
 \subsection{Bipartite Graphs}
-% ---------------------------------------------------------------------
 
 A \textbf{bipartite graph} $G = (U \cup V, E)$ has two disjoint
 vertex sets with edges only between them.
 
 \begin{center}
-\begin{tikzpicture}[
-  every node/.style={circle, draw, minimum size=6mm, inner sep=0pt},
-  >=Stealth
-]
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
   \foreach \i in {1,2,3} {
     \node (u\i) at (0, -\i) {$u_\i$};
     \node (v\i) at (3, -\i) {$v_\i$};
@@ -53,96 +42,62 @@ vertex sets with edges only between them.
 The fundamental question is: \emph{how many independent pairs
 can we match?}
 
-% ---------------------------------------------------------------------
 \subsection{Matchings}
-% ---------------------------------------------------------------------
 
 A \textbf{matching} $M \subseteq E$ is a set of edges with no
-shared endpoints.
+shared endpoints.  A vertex is \textbf{matched} if it belongs to
+some edge in $M$; otherwise it is \textbf{free}.  A
+\textbf{maximum matching} maximises $|M|$.  A \textbf{perfect
+matching} matches every vertex ($|M| = |U| = |V|$).
 
-\begin{itemize}
-  \item A vertex is \textbf{matched} if it is an endpoint of
-        some edge in $M$; otherwise it is \textbf{free}.
-  \item A \textbf{maximum matching} has the largest possible
-        $|M|$.
-  \item A \textbf{perfect matching} matches every vertex
-        ($|M| = |U| = |V|$).
-\end{itemize}
-
-Our goal is to find a maximum matching efficiently.
-
-% ---------------------------------------------------------------------
 \subsection{Alternating and Augmenting Paths}
-% ---------------------------------------------------------------------
 
-Given a matching $M$:
+Given a matching $M$, an \textbf{alternating path} alternates
+between edges in $M$ and edges not in $M$.  An
+\textbf{augmenting path} is an alternating path whose two
+endpoints are both free.
 
-\begin{itemize}
-  \item An \textbf{alternating path} alternates between edges
-        in $M$ and edges not in $M$.
-  \item An \textbf{augmenting path} is an alternating path that
-        starts and ends at free (unmatched) vertices.
-\end{itemize}
-
-The key insight is that if an augmenting path exists, we can
-\emph{flip} all edges along it---matched $\leftrightarrow$
-unmatched---to obtain a matching of size $|M| + 1$.
+If an augmenting path exists, flipping every edge along it
+(matched $\leftrightarrow$ unmatched) yields a matching of size
+$|M| + 1$.
 
 \begin{theorem}[Berge, 1957]
 A matching $M$ is maximum if and only if there is no augmenting
 path with respect to $M$.
 \end{theorem}
 
-% ---------------------------------------------------------------------
-\subsection{Finding Maximum Matchings via Augmenting Paths}
-% ---------------------------------------------------------------------
+\subsection{Algorithm}
 
-Berge's theorem immediately yields an algorithm:
-
-\begin{algorithmic}[1]
-  \State Start with any matching $M$ (e.g.\ $M = \emptyset$)
-  \Repeat
-    \State Search for an augmenting path $P$ (BFS/DFS from free
-           vertices)
-    \If{$P$ found}
-      \State Augment: $M \gets M \oplus P$ (symmetric difference)
-    \EndIf
-  \Until{no augmenting path exists}
-  \State \Return $M$ (maximum matching)
-\end{algorithmic}
-
-\medskip
-Each augmentation increases $|M|$ by exactly~1, so the algorithm
-terminates after at most $|V|/2$ iterations.
+Berge's theorem gives an algorithm: start with $M = \emptyset$,
+repeatedly search for an augmenting path $P$ (via BFS or DFS
+from free vertices), and set $M \gets M \oplus P$ (symmetric
+difference).  Stop when no augmenting path exists.  Each
+augmentation increases $|M|$ by one, so the algorithm terminates
+after at most $\lfloor |V|/2 \rfloor$ iterations.
 
 % =====================================================================
 \section{From Matchings to Network Flow}
-\label{sec:matchings-to-flow}
 % =====================================================================
 
-% ---------------------------------------------------------------------
 \subsection{Adding a Source and Sink}
-% ---------------------------------------------------------------------
 
 A bipartite matching problem is a network flow problem in
-disguise.  Given a bipartite graph $G = (U \cup V, E)$,
-construct a flow network as follows:
+disguise.  Given $G = (U \cup V, E)$, construct a directed
+graph:
 
 \begin{center}
-\begin{tikzpicture}[
-  every node/.style={circle, draw, minimum size=6mm, inner sep=0pt},
-  >=Stealth, thick
-]
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick]
   \node[fill=blue!20] (s) at (-2, -2) {$s$};
-  \node[fill=red!20]  (t) at (5, -2) {$t$};
+  \node[fill=red!20]  (t) at (5, -2)  {$t$};
   \foreach \i in {1,2,3} {
     \node (u\i) at (0, -\i) {$u_\i$};
     \node (v\i) at (3, -\i) {$v_\i$};
   }
   \foreach \i in {1,2,3} {
-    \draw[->] (s)--(u\i) node[midway,above,draw=none,
+    \draw[->] (s)--(u\i) node[midway, above, draw=none,
               font=\scriptsize] {1};
-    \draw[->] (v\i)--(t) node[midway,above,draw=none,
+    \draw[->] (v\i)--(t) node[midway, above, draw=none,
               font=\scriptsize] {1};
   }
   \draw[->] (u1)--(v1); \draw[->] (u1)--(v2);
@@ -151,386 +106,253 @@ construct a flow network as follows:
 \end{tikzpicture}
 \end{center}
 
-\begin{enumerate}
-  \item Add a source $s$ with directed edges to every vertex
-        in $U$, each with capacity~1.
-  \item Add a sink $t$ with directed edges from every vertex
-        in $V$, each with capacity~1.
-  \item Direct all original edges from $U$ to $V$ with
-        capacity~1.
-\end{enumerate}
+Add a source $s$ with capacity-1 edges to every $u \in U$, a
+sink $t$ with capacity-1 edges from every $v \in V$, and direct
+the original edges from $U$ to $V$ with capacity~1.  An integer
+maximum flow in this network corresponds exactly to a maximum
+matching.
 
-In this construction, an integer maximum flow corresponds
-exactly to a maximum matching: the value of the max flow
-equals the size of the max matching.
-
-% ---------------------------------------------------------------------
 \subsection{Applications}
-% ---------------------------------------------------------------------
 
-Network flow models appear throughout combinatorics and
-applied mathematics:
-
-\begin{itemize}
-  \item \textbf{Bipartite matching}: job assignments, course
-        scheduling.
-  \item \textbf{Transportation}: shipping goods through a
-        network with link capacities.
-  \item \textbf{Telecommunications}: routing data through links
-        with bandwidth limits.
-  \item \textbf{Image segmentation}: a min-cut separates
-        foreground from background.
-  \item \textbf{Baseball elimination}: determining whether a
-        team can still win the league.
-  \item \textbf{Component-to-line assignment}: assigning
-        plot fragments to their underlying lines.
-\end{itemize}
+Network flow models appear throughout combinatorics and applied
+mathematics: bipartite matching (job assignment, scheduling),
+transportation and logistics, telecommunications routing, image
+segmentation (min-cut separates foreground from background),
+baseball elimination, and---for our purposes---assigning
+components to lines.
 
 % =====================================================================
 \section{Formal Definitions: Flows and Cuts}
-\label{sec:definitions}
 % =====================================================================
 
-% ---------------------------------------------------------------------
 \subsection{Flow Networks}
-% ---------------------------------------------------------------------
 
 \begin{definition}[Network]
 A \textbf{network} is a directed graph $G = (V, E)$ with a
-non-negative capacity function $c : E \to \mathbb{R}_{\ge 0}$,
-without multiple arcs.  Without loss of generality, we may
-assume that if $(u, v) \in E$ then $(v, u) \in E$ as well;
-if $(v, u) \notin E$, we add it with $c(v, u) = 0$.
+non-negative capacity function $c : E \to \mathbb{R}_{\ge 0}$
+and no multiple arcs.  Without loss of generality, if
+$(u,v) \in E$ then $(v,u) \in E$ as well (add it with
+$c(v,u) = 0$ if absent).
 \end{definition}
 
 \begin{definition}[Flow network]
-If two nodes in $G$ are distinguished---one as the
-\textbf{source} $s$ and the other as the \textbf{sink}
-$t$---then $(G, c, s, t)$ is called a \textbf{flow network}.
+If two vertices are distinguished---a \textbf{source} $s$ and a
+\textbf{sink} $t$---then $(G, c, s, t)$ is a \textbf{flow
+network}.
 \end{definition}
 
-% ---------------------------------------------------------------------
 \subsection{Flows}
-% ---------------------------------------------------------------------
 
 \begin{definition}[Flow]
-A \textbf{flow} on a flow network $(G, c, s, t)$ is a function
-$f : E \to \mathbb{R}_{\ge 0}$ satisfying:
-
+A \textbf{flow} is a function $f : E \to \mathbb{R}_{\ge 0}$
+satisfying:
 \begin{enumerate}
-  \item \textbf{Capacity constraint}: $0 \le f(u,v) \le c(u,v)$
-        for all $(u,v) \in E$.
-  \item \textbf{Flow conservation}: for all
-        $v \in V \setminus \{s, t\}$:
+  \item \textbf{Capacity}: $0 \le f(u,v) \le c(u,v)$ for all
+        $(u,v) \in E$.
+  \item \textbf{Conservation}: for every
+        $v \in V \setminus \{s,t\}$,
         \[
           \sum_{u:(u,v)\in E} f(u,v)
           = \sum_{w:(v,w)\in E} f(v,w).
         \]
-        That is, flow into $v$ equals flow out of $v$.
 \end{enumerate}
 \end{definition}
 
-The \textbf{value} of a flow is the net flow leaving the source:
-\[
-  |f| = \sum_{v:(s,v)\in E} f(s,v)
-      - \sum_{u:(u,s)\in E} f(u,s).
-\]
+The \textbf{value} of a flow is
+$|f| = \sum_{v:(s,v)\in E} f(s,v)
+     - \sum_{u:(u,s)\in E} f(u,s)$.
 
-% ---------------------------------------------------------------------
 \subsection{Cuts}
-% ---------------------------------------------------------------------
 
 \begin{definition}[$s$-$t$ cut]
-An \textbf{$s$-$t$ cut} $(S, T)$ is a partition of $V$ into
-two sets $V = S \cup T$ with $s \in S$ and $t \in T$.
+An \textbf{$s$-$t$ cut} $(S, T)$ is a partition $V = S \cup T$
+with $s \in S$ and $t \in T$.  Its \textbf{capacity} is
+\[
+  c(S,T) = \sum_{\substack{u \in S,\, v \in T \\ (u,v) \in E}}
+           c(u,v).
+\]
 \end{definition}
 
-The \textbf{capacity} of the cut is the total capacity of edges
-crossing from $S$ to $T$:
-\[
-  c(S, T) = \sum_{\substack{u \in S,\, v \in T \\ (u,v) \in E}}
-    c(u, v).
-\]
-
-Intuitively, a cut represents a bottleneck: it is the maximum
-amount of flow that can cross from the $s$-side to the $t$-side.
+A cut is a bottleneck: it bounds the maximum flow that can cross
+from the $s$-side to the $t$-side.
 
 % =====================================================================
 \section{Beyond Bipartite Graphs}
-\label{sec:general}
 % =====================================================================
 
-Nothing in the definitions of flows and cuts requires a bipartite
-structure.  The graph can have arbitrary topology---cycles, dense
-subgraphs, self-loops (with zero capacity), etc.  The capacity
-constraints and flow conservation apply identically, and as we
-shall see, the max-flow min-cut theorem holds for \emph{any}
-directed graph.
-
-Bipartite matching is a special case: unit capacities on a
-layered graph.  The general theory of network flow is strictly
-more powerful, handling real-valued capacities and arbitrary
-graph structure.
+Nothing in the definitions above requires a bipartite structure.
+The graph may have cycles, dense subgraphs, or arbitrary
+topology.  Capacity constraints and flow conservation apply
+identically, and the max-flow min-cut theorem holds for any
+directed graph.  Bipartite matching is simply a special case
+with unit capacities on a layered graph.
 
 % =====================================================================
 \section{The Max-Flow Min-Cut Theorem}
-\label{sec:mfmc}
 % =====================================================================
 
-% ---------------------------------------------------------------------
 \subsection{Statement}
-% ---------------------------------------------------------------------
 
-\begin{theorem}[Max-flow min-cut; Ford--Fulkerson, 1956]
+\begin{theorem}[Ford--Fulkerson, 1956]
 \label{thm:mfmc}
-In any flow network $(G, c, s, t)$:
+In any flow network $(G, c, s, t)$,
 \[
-  \max_f |f| = \min_{(S,T)} c(S, T).
+  \max_f |f| = \min_{(S,T)} c(S,T).
 \]
-The maximum value of an $s$-$t$ flow equals the minimum capacity
-of an $s$-$t$ cut.
 \end{theorem}
 
-The following three conditions are equivalent:
-\begin{enumerate}
-  \item $f$ is a maximum flow.
-  \item There is no augmenting path in the residual graph $G_f$.
-  \item $|f| = c(S, T)$ for some cut $(S, T)$.
-\end{enumerate}
+The following are equivalent: (i)~$f$ is a maximum flow;
+(ii)~there is no augmenting path in the residual graph $G_f$;
+(iii)~$|f| = c(S,T)$ for some cut $(S,T)$.
 
-% ---------------------------------------------------------------------
 \subsection{Residual Graph}
-% ---------------------------------------------------------------------
 
-Given a flow $f$, the \textbf{residual graph} $G_f = (V, E_f)$
-is defined as follows:
+Given flow $f$, the \textbf{residual graph} $G_f = (V, E_f)$
+contains a \textbf{forward edge} $(u,v)$ with capacity
+$c_f(u,v) = c(u,v) - f(u,v)$ whenever this is positive, and a
+\textbf{backward edge} $(v,u)$ with capacity $c_f(v,u) = f(u,v)$
+whenever $f(u,v) > 0$.  An \textbf{augmenting path} is any
+$s \to t$ path in $G_f$.  Backward edges allow the algorithm to
+undo previously pushed flow---the same mechanism as augmenting
+paths in matching.
 
-\begin{itemize}
-  \item For each edge $(u,v) \in E$ with $f(u,v) < c(u,v)$,
-        include a \textbf{forward edge} $(u,v)$ with residual
-        capacity $c_f(u,v) = c(u,v) - f(u,v)$.
-  \item For each edge $(u,v) \in E$ with $f(u,v) > 0$, include
-        a \textbf{backward edge} $(v,u)$ with residual capacity
-        $c_f(v,u) = f(u,v)$.
-\end{itemize}
-
-An \textbf{augmenting path} is any $s \to t$ path in~$G_f$.
-The backward edges are the key mechanism: they allow the
-algorithm to ``undo'' previously pushed flow, enabling
-rearrangements that no single forward push could achieve.  This
-is the same idea as augmenting paths in matching.
-
-% ---------------------------------------------------------------------
 \subsection{Proof of Weak Duality}
-% ---------------------------------------------------------------------
 
-We first show that no flow can exceed any cut.
-
-\textbf{Claim}: For any flow $f$ and any $s$-$t$ cut $(S, T)$:
-$|f| \le c(S, T)$.
+\textbf{Claim.} For any flow $f$ and any cut $(S,T)$,
+$|f| \le c(S,T)$.
 
 \begin{proof}
-By flow conservation, the net flow leaving $S$ equals $|f|$:
+By flow conservation the net flow leaving $S$ equals $|f|$:
 \begin{align*}
-  |f| &= \sum_{\substack{u \in S,\, v \in T \\ (u,v) \in E}}
-         f(u,v)
-       - \sum_{\substack{u \in T,\, v \in S \\ (u,v) \in E}}
-         f(u,v) \\[4pt]
-      &\le \sum_{\substack{u \in S,\, v \in T \\ (u,v) \in E}}
-         f(u,v)
-       \le \sum_{\substack{u \in S,\, v \in T \\ (u,v) \in E}}
-         c(u,v)
-       = c(S, T).
+  |f|
+  &= \sum_{\substack{u \in S,\, v \in T}}  f(u,v)
+   - \sum_{\substack{u \in T,\, v \in S}}  f(u,v)
+  \le \sum_{\substack{u \in S,\, v \in T}}  f(u,v)
+  \le \sum_{\substack{u \in S,\, v \in T}}  c(u,v)
+  = c(S,T).
 \end{align*}
-The first inequality drops the non-negative reverse-flow term;
-the second uses the capacity constraint $f(u,v) \le c(u,v)$.
+The first inequality drops a non-negative term; the second uses
+the capacity constraint.
 \end{proof}
 
-% ---------------------------------------------------------------------
 \subsection{Proof of Strong Duality}
-% ---------------------------------------------------------------------
 
-We now show that equality is achieved: there exist $f^*$ and
-$(S^*, T^*)$ with $|f^*| = c(S^*, T^*)$.
+\textbf{Claim.} There exist $f^*$ and $(S^*,T^*)$ with
+$|f^*| = c(S^*,T^*)$.
 
 \begin{proof}
-Run the Ford--Fulkerson algorithm: repeatedly find augmenting
-paths in $G_f$ and push flow until no augmenting path exists.
-Let $f^*$ be the resulting flow.
-
-\begin{enumerate}
-  \item Since no augmenting $s \to t$ path exists in $G_{f^*}$,
-        define:
-        \[
-          S^* = \{v \in V : v \text{ is reachable from } s
-                \text{ in } G_{f^*}\}, \qquad
-          T^* = V \setminus S^*.
-        \]
-  \item Since $t$ is not reachable from $s$ in $G_{f^*}$, we
-        have $t \notin S^*$, so $(S^*, T^*)$ is a valid
-        $s$-$t$ cut.
-  \item For every edge $(u,v)$ with $u \in S^*$, $v \in T^*$:
-        we must have $f^*(u,v) = c(u,v)$.  If not, the forward
-        edge $(u,v)$ would exist in $G_{f^*}$ with positive
-        residual capacity, making $v$ reachable from $s$---a
-        contradiction with $v \in T^*$.
-  \item For every edge $(v,u)$ with $v \in T^*$, $u \in S^*$:
-        we must have $f^*(v,u) = 0$.  If $f^*(v,u) > 0$, the
-        backward edge $(u,v)$ would exist in $G_{f^*}$, making
-        $v$ reachable---again a contradiction.
-  \item Therefore:
-        \[
-          |f^*| = \sum_{\substack{u \in S^*,\, v \in T^*}}
-                  f^*(u,v)
-                - \sum_{\substack{v \in T^*,\, u \in S^*}}
-                  f^*(v,u)
-               = c(S^*, T^*) - 0
-               = c(S^*, T^*).
-        \]
-\end{enumerate}
-
-By weak duality, $|f^*| \le c(S^*, T^*)$ for all cuts, and we
-have exhibited equality.  Hence $f^*$ is a maximum flow and
-$(S^*, T^*)$ is a minimum cut. \qedhere
+Run Ford--Fulkerson until no augmenting path exists; call the
+resulting flow $f^*$.  Define
+\[
+  S^* = \{v \in V : v \text{ reachable from } s \text{ in }
+        G_{f^*}\}, \qquad T^* = V \setminus S^*.
+\]
+Since $t \notin S^*$, this is a valid cut.  For every edge
+$(u,v)$ with $u \in S^*$, $v \in T^*$ we have
+$f^*(u,v) = c(u,v)$---otherwise $v$ would be reachable via a
+forward edge.  For every edge $(v,u)$ with $v \in T^*$,
+$u \in S^*$ we have $f^*(v,u) = 0$---otherwise $v$ would be
+reachable via a backward edge.  Therefore
+\[
+  |f^*|
+  = \sum_{\substack{u \in S^*,\, v \in T^*}} f^*(u,v)
+  - \sum_{\substack{v \in T^*,\, u \in S^*}} f^*(v,u)
+  = c(S^*,T^*) - 0
+  = c(S^*,T^*).
+\]
+By weak duality $f^*$ is maximum and $(S^*,T^*)$ is minimum.
 \end{proof}
 
 % =====================================================================
 \section{Algorithm and Examples}
-\label{sec:algorithm}
 % =====================================================================
 
-% ---------------------------------------------------------------------
-\subsection{The Ford--Fulkerson Algorithm}
-% ---------------------------------------------------------------------
+\subsection{Ford--Fulkerson}
 
-\begin{algorithm}[H]
-\caption{Ford--Fulkerson method}
-\label{alg:ff}
-\begin{algorithmic}[1]
-  \State Initialise $f(u,v) \gets 0$ for all $(u,v) \in E$
-  \While{there exists an augmenting path $P$ in $G_f$}
-    \State $\delta \gets \min_{(u,v) \in P} c_f(u,v)$
-           \Comment{bottleneck capacity}
-    \For{each edge $(u,v) \in P$}
-      \If{$(u,v)$ is a forward edge}
-        \State $f(u,v) \gets f(u,v) + \delta$
-      \Else \Comment{backward edge}
-        \State $f(v,u) \gets f(v,u) - \delta$
-      \EndIf
-    \EndFor
-  \EndWhile
-  \State \Return $f$
-\end{algorithmic}
-\end{algorithm}
+\noindent\textbf{Input:} Flow network $(G, c, s, t)$.\\
+\textbf{Output:} Maximum flow $f$.
 
-The \textbf{Edmonds--Karp} variant always chooses the shortest
-augmenting path (by BFS), giving a worst-case complexity of
-$O(VE^2)$.
-
-% ---------------------------------------------------------------------
-\subsection{Example}
-% ---------------------------------------------------------------------
-
-We trace the algorithm on a small network.
-
+\medskip
 \begin{enumerate}
-  \item \textbf{Initialise}: set all flows to zero.
-  \item \textbf{Iteration 1}: find an augmenting path from $s$
-        to $t$ in the residual graph, compute the bottleneck
-        capacity $\delta$, and push $\delta$ units of flow
-        along the path.
-  \item \textbf{Update}: recompute the residual graph (forward
-        edges shrink, backward edges appear).
-  \item \textbf{Iterate}: repeat until no $s$-$t$ path exists
-        in the residual graph.
-  \item \textbf{Read off the min cut}: the set of vertices
-        reachable from $s$ in the final residual graph is $S^*$;
-        the cut $(S^*, V \setminus S^*)$ is the minimum cut.
+  \item Set $f(u,v) \gets 0$ for all $(u,v) \in E$.
+  \item While there exists an augmenting path $P$ in $G_f$:
+    \begin{enumerate}
+      \item Let $\delta = \min_{(u,v) \in P} c_f(u,v)$.
+      \item For each forward edge $(u,v) \in P$, set
+            $f(u,v) \gets f(u,v) + \delta$.
+      \item For each backward edge $(v,u) \in P$, set
+            $f(v,u) \gets f(v,u) - \delta$.
+    \end{enumerate}
+  \item Return $f$.
 \end{enumerate}
+
+\medskip
+The \textbf{Edmonds--Karp} variant uses BFS to find the shortest
+augmenting path, giving worst-case complexity $O(VE^2)$.
+
+\subsection{Example}
+
+We trace the algorithm on a small network: start with zero flow,
+find an augmenting $s$-$t$ path in the residual graph, push flow
+along it, update the residual graph (forward edges shrink,
+backward edges appear), and repeat.  When no path exists, the
+vertices reachable from $s$ in the final residual graph form
+$S^*$; the cut $(S^*, V \setminus S^*)$ is the minimum cut.
 
 % =====================================================================
 \section{Summary and Related Results}
-\label{sec:related}
 % =====================================================================
 
 The max-flow min-cut theorem is the cornerstone of a family of
-equivalent duality results in combinatorics.  We state the four
-most important corollaries.
+duality results in combinatorics.
 
-% ---------------------------------------------------------------------
 \subsection{Hall's Theorem}
-% ---------------------------------------------------------------------
 
 \begin{theorem}[Hall, 1935]
-A bipartite graph $G = (U \cup V, E)$ has a matching that
-saturates every vertex in $U$ if and only if for every
-$S \subseteq U$:
-\[
-  |N(S)| \ge |S|,
-\]
-where $N(S)$ is the set of neighbours of $S$ in $V$.
+A bipartite graph $G = (U \cup V, E)$ has a matching saturating
+every vertex in $U$ iff $|N(S)| \ge |S|$ for all
+$S \subseteq U$.
 \end{theorem}
 
-\textbf{Connection to max-flow min-cut}: Hall's condition is
-equivalent to saying that no $s$-$t$ cut in the corresponding
-flow network has capacity less than $|U|$.
+Hall's condition is equivalent to every $s$-$t$ cut having
+capacity at least $|U|$ in the corresponding flow network.
 
-% ---------------------------------------------------------------------
 \subsection{Birkhoff--von Neumann Theorem}
-% ---------------------------------------------------------------------
 
 \begin{theorem}[Birkhoff, 1946; von Neumann, 1953]
 Every doubly stochastic matrix is a convex combination of
 permutation matrices.
 \end{theorem}
 
-A \textbf{doubly stochastic matrix} is a non-negative matrix
-whose rows and columns each sum to~1.  Equivalently, the set of
-doubly stochastic matrices is the convex hull of permutation
-matrices.
+A doubly stochastic matrix has non-negative entries with rows
+and columns summing to~1.  The theorem says the LP relaxation of
+bipartite matching has no integrality gap: any fractional
+matching decomposes into integer matchings.
 
-\textbf{Connection to network flow}: this theorem says that the
-LP relaxation of bipartite matching has no integrality gap---any
-fractional matching (doubly stochastic matrix) decomposes into a
-convex combination of integer matchings (permutation matrices).
+\subsection{K\"onig--Egerv\'ary Theorem}
 
-% ---------------------------------------------------------------------
-\subsection{K\H{o}nig--Egerv\'ary Theorem}
-% ---------------------------------------------------------------------
-
-\begin{theorem}[K\H{o}nig, 1931; Egerv\'ary, 1931]
+\begin{theorem}[K\"onig, 1931; Egerv\'ary, 1931]
 In a bipartite graph, the size of a maximum matching equals the
 size of a minimum vertex cover.
 \end{theorem}
 
-A \textbf{vertex cover} is a set of vertices that touches every
-edge.  In general graphs, the minimum vertex cover can be much
-larger than the maximum matching, but in bipartite graphs LP
-duality gives exact equality.
+A vertex cover is a set of vertices touching every edge.  The
+minimum vertex cover corresponds to a minimum cut in the flow
+network.
 
-\textbf{Connection to network flow}: the minimum vertex cover
-corresponds to a minimum cut in the associated flow network.
-
-% ---------------------------------------------------------------------
 \subsection{Menger's Theorem}
-% ---------------------------------------------------------------------
 
 \begin{theorem}[Menger, 1927]
 The maximum number of vertex-disjoint $s$-$t$ paths equals the
-minimum number of vertices (other than $s, t$) whose removal
+minimum number of vertices (other than $s,t$) whose removal
 disconnects $s$ from $t$.
 \end{theorem}
 
-There is also an edge-disjoint version: the maximum number of
-edge-disjoint $s$-$t$ paths equals the minimum number of edges
-whose removal disconnects $s$ from $t$.
+The edge-disjoint version---max edge-disjoint paths equals min
+edge cut---is a direct corollary of max-flow min-cut with unit
+capacities.
 
-\textbf{Connection to network flow}: Menger's theorem is a
-direct corollary of max-flow min-cut with unit capacities.
-
-% ---------------------------------------------------------------------
 \subsection{Unifying View}
-% ---------------------------------------------------------------------
 
 \begin{center}
 \renewcommand{\arraystretch}{1.3}
@@ -538,18 +360,14 @@ direct corollary of max-flow min-cut with unit capacities.
   \textbf{Result} & \textbf{Says} \\
   \hline
   Max-flow min-cut & max throughput $=$ min bottleneck \\
-  Hall's theorem & perfect matching $\iff$ no small
-                   neighbourhood \\
-  Birkhoff--von Neumann & fractional matching $=$
-                          integer matching \\
-  K\H{o}nig--Egerv\'ary & max matching $=$ min vertex cover \\
-  Menger's theorem & max disjoint paths $=$ min separator \\
+  Hall & perfect matching $\iff$ no small neighbourhood \\
+  Birkhoff--von Neumann & fractional matching $=$ integer matching \\
+  K\"onig--Egerv\'ary & max matching $=$ min vertex cover \\
+  Menger & max disjoint paths $=$ min separator
 \end{tabular}
 \end{center}
 
-\medskip
-All of these results are facets of the same duality:
-\textbf{what you can push through a network equals what it takes
-to block it}.
+All are facets of the same duality: \textbf{what you can push
+through a network equals what it takes to block it}.
 
 \end{document}
