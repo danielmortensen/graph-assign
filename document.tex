@@ -230,35 +230,219 @@ would be stuck at $|M| = 3$.
 \subsection{Adding a Source and Sink}
 
 A bipartite matching problem is a network flow problem in
-disguise.  Given $G = (U \cup V, E)$, construct a directed
-graph:
+disguise.  We convert the same graph from Section~1 into a flow
+network by adding a source $s$ with capacity-1 edges to every
+$u \in U$, a sink $t$ with capacity-1 edges from every
+$v \in V$, and directing the original edges from $U$ to $V$ with
+capacity~1.  All capacities are~1.
 
 \begin{center}
 \begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
   inner sep=0pt}, >=Stealth, thick]
-  \node[fill=blue!20] (s) at (-2, -2) {$s$};
-  \node[fill=red!20]  (t) at (5, -2)  {$t$};
-  \foreach \i in {1,2,3} {
+  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \foreach \i in {1,...,4} {
     \node (u\i) at (0, -\i) {$u_\i$};
     \node (v\i) at (3, -\i) {$v_\i$};
   }
-  \foreach \i in {1,2,3} {
-    \draw[->] (s)--(u\i) node[midway, above, draw=none,
-              font=\scriptsize] {1};
-    \draw[->] (v\i)--(t) node[midway, above, draw=none,
-              font=\scriptsize] {1};
+  \foreach \i in {1,...,4} {
+    \draw[->] (s)--(u\i);
+    \draw[->] (v\i)--(t);
   }
   \draw[->] (u1)--(v1); \draw[->] (u1)--(v2);
-  \draw[->] (u2)--(v2); \draw[->] (u2)--(v3);
-  \draw[->] (u3)--(v1);
+  \draw[->] (u2)--(v1);
+  \draw[->] (u3)--(v2); \draw[->] (u3)--(v3);
+  \draw[->] (u4)--(v3); \draw[->] (u4)--(v4);
 \end{tikzpicture}
 \end{center}
 
-Add a source $s$ with capacity-1 edges to every $u \in U$, a
-sink $t$ with capacity-1 edges from every $v \in V$, and direct
-the original edges from $U$ to $V$ with capacity~1.  An integer
-maximum flow in this network corresponds exactly to a maximum
-matching.
+An integer maximum flow in this network corresponds exactly to a
+maximum matching: each unit of flow along
+$s \to u_i \to v_j \to t$ represents the matched edge
+$(u_i, v_j)$.
+
+\subsection{Ford--Fulkerson on the Same Graph}
+
+We now trace the Ford--Fulkerson algorithm on this network.  At
+each step we show the residual graph, find an augmenting
+$s \to t$ path, and push one unit of flow.  Edges labelled with
+their residual capacity; forward edges are solid, backward edges
+are dashed.
+
+\paragraph{Iteration 1.}
+All flows are zero.  The residual graph equals the original
+network.  BFS from $s$ finds the path
+$s \to u_1 \to v_1 \to t$ with bottleneck
+$\delta = 1$.  Push 1 unit.
+
+Flow: $f(s,u_1) = f(u_1,v_1) = f(v_1,t) = 1$.  Total $|f| = 1$.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick, scale=0.95]
+  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  % s -> U: u1 saturated (backward only), rest forward
+  \draw[->, dashed] (u1)--(s);
+  \draw[->] (s)--(u2); \draw[->] (s)--(u3); \draw[->] (s)--(u4);
+  % V -> t: v1 saturated (backward only), rest forward
+  \draw[->, dashed] (t) to[bend left=15] (v1);
+  \draw[->] (v2)--(t); \draw[->] (v3)--(t); \draw[->] (v4)--(t);
+  % U -> V edges
+  \draw[->, dashed] (v1)--(u1);  % backward: f(u1,v1)=1
+  \draw[->] (u1)--(v2);          % forward: still unused
+  \draw[->] (u2)--(v1);          % forward: still unused
+  \draw[->] (u3)--(v2); \draw[->] (u3)--(v3);
+  \draw[->] (u4)--(v3); \draw[->] (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+Note the backward edges $u_1 \dashleftarrow v_1$,
+$s \dashleftarrow u_1$, and $v_1 \dashleftarrow t$: these allow
+future iterations to undo this flow.
+
+\paragraph{Iteration 2.}
+BFS from $s$ finds $s \to u_3 \to v_2 \to t$.  Push 1 unit.
+
+Flow: additionally $f(s,u_3) = f(u_3,v_2) = f(v_2,t) = 1$.
+Total $|f| = 2$.
+
+\paragraph{Iteration 3.}
+BFS from $s$ finds $s \to u_4 \to v_3 \to t$.  Push 1 unit.
+
+Flow: additionally $f(s,u_4) = f(u_4,v_3) = f(v_3,t) = 1$.
+Total $|f| = 3$.
+
+The residual graph after three iterations:
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick, scale=0.95]
+  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  % s -> U: u1,u3,u4 saturated; u2 open
+  \draw[->, dashed] (u1)--(s);
+  \draw[->] (s)--(u2);
+  \draw[->, dashed] (u3)--(s);
+  \draw[->, dashed] (u4)--(s);
+  % V -> t: v1,v2,v3 saturated; v4 open
+  \draw[->, dashed] (t) to[bend left=15] (v1);
+  \draw[->, dashed] (t) to[bend left=15] (v2);
+  \draw[->, dashed] (t) to[bend left=15] (v3);
+  \draw[->] (v4)--(t);
+  % U -> V: saturated edges become backward; unused stay forward
+  \draw[->, dashed] (v1)--(u1);   % backward
+  \draw[->] (u1)--(v2);           % forward (unused)
+  \draw[->] (u2)--(v1);           % forward (unused)
+  \draw[->, dashed] (v2)--(u3);   % backward
+  \draw[->] (u3)--(v3);           % forward (unused)
+  \draw[->, dashed] (v3)--(u4);   % backward
+  \draw[->] (u4)--(v4);           % forward (unused)
+\end{tikzpicture}
+\end{center}
+
+\paragraph{Iteration 4.}
+BFS from $s$.  The only forward edge from $s$ is $s \to u_2$.
+From $u_2$, the only forward edge is $u_2 \to v_1$.  But
+$v_1 \to t$ is saturated (only the backward edge $t \to v_1$
+exists).  So BFS must use the backward edge $v_1 \to u_1$
+(undoing the flow $u_1 \to v_1$), then the forward edge
+$u_1 \to v_2$, then backward $v_2 \to u_3$, then forward
+$u_3 \to v_3$, then backward $v_3 \to u_4$, then forward
+$u_4 \to v_4$, then forward $v_4 \to t$.
+
+The augmenting path in the residual graph:
+\[
+  s \to u_2 \to v_1
+  \dashrightarrow u_1 \to v_2
+  \dashrightarrow u_3 \to v_3
+  \dashrightarrow u_4 \to v_4 \to t
+\]
+
+\noindent
+where $\to$ denotes a forward edge and $\dashrightarrow$ a
+backward edge (undoing existing flow).
+
+Bottleneck $\delta = 1$ (all residual capacities are~1).  Push
+1 unit along this path.  For each forward edge, increase flow by
+1; for each backward edge, \emph{decrease} flow by 1 on the
+reverse arc:
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lll}
+  \textbf{Edge in path} & \textbf{Type} & \textbf{Update} \\
+  \hline
+  $s \to u_2$    & forward  & $f(s,u_2) : 0 \to 1$ \\
+  $u_2 \to v_1$  & forward  & $f(u_2,v_1) : 0 \to 1$ \\
+  $v_1 \to u_1$  & backward & $f(u_1,v_1) : 1 \to 0$ \\
+  $u_1 \to v_2$  & forward  & $f(u_1,v_2) : 0 \to 1$ \\
+  $v_2 \to u_3$  & backward & $f(u_3,v_2) : 1 \to 0$ \\
+  $u_3 \to v_3$  & forward  & $f(u_3,v_3) : 0 \to 1$ \\
+  $v_3 \to u_4$  & backward & $f(u_4,v_3) : 1 \to 0$ \\
+  $u_4 \to v_4$  & forward  & $f(u_4,v_4) : 0 \to 1$ \\
+  $v_4 \to t$    & forward  & $f(v_4,t) : 0 \to 1$ \\
+\end{tabular}
+\end{center}
+
+\medskip
+Total $|f| = 4$.  The resulting flow (and corresponding matching):
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick, scale=0.95]
+  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  % flow-carrying edges in blue
+  \draw[->, line width=2pt, blue] (s)--(u1);
+  \draw[->, line width=2pt, blue] (s)--(u2);
+  \draw[->, line width=2pt, blue] (s)--(u3);
+  \draw[->, line width=2pt, blue] (s)--(u4);
+  \draw[->, line width=2pt, blue] (u2)--(v1);
+  \draw[->, line width=2pt, blue] (u1)--(v2);
+  \draw[->, line width=2pt, blue] (u3)--(v3);
+  \draw[->, line width=2pt, blue] (u4)--(v4);
+  \draw[->, line width=2pt, blue] (v1)--(t);
+  \draw[->, line width=2pt, blue] (v2)--(t);
+  \draw[->, line width=2pt, blue] (v3)--(t);
+  \draw[->, line width=2pt, blue] (v4)--(t);
+  % non-flow edges (thin gray)
+  \draw[->, gray, thin] (u1)--(v1);
+  \draw[->, gray, thin] (u2)--(v1);
+  \draw[->, gray, thin] (u3)--(v2);
+  \draw[->, gray, thin] (u4)--(v3);
+\end{tikzpicture}
+\end{center}
+
+\paragraph{Iteration 5.}
+In the residual graph, all edges from $s$ are saturated (backward
+only).  No $s \to t$ path exists.  The algorithm terminates.
+
+The set of vertices reachable from $s$ in the final residual
+graph is $S^* = \{s\}$ (no forward edge leaves $s$).  The
+minimum cut is $(\{s\}, V \setminus \{s\})$ with capacity~4,
+confirming $\max |f| = \min c(S,T) = 4$.
+
+\paragraph{Comparison with Section~1.}
+The flow in iteration~4 corresponds exactly to the augmenting
+path in Step~4 of the matching algorithm.  The backward edges in
+the residual graph play the same role as the matched edges in the
+alternating path: they let the algorithm \emph{undo} previous
+flow assignments.  Ford--Fulkerson on the flow network is the
+augmenting-paths algorithm in disguise.
 
 \subsection{Applications}
 
