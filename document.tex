@@ -75,6 +75,154 @@ difference).  Stop when no augmenting path exists.  Each
 augmentation increases $|M|$ by one, so the algorithm terminates
 after at most $\lfloor |V|/2 \rfloor$ iterations.
 
+\subsection{Example: Augmenting Paths Step by Step}
+
+Consider the bipartite graph with $U = \{u_1, u_2, u_3, u_4\}$,
+$V = \{v_1, v_2, v_3, v_4\}$ and edges:
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw (u1)--(v1); \draw (u1)--(v2);
+  \draw (u2)--(v1);
+  \draw (u3)--(v2); \draw (u3)--(v3);
+  \draw (u4)--(v3); \draw (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+Note that $u_2$ has only one neighbour ($v_1$), so any perfect
+matching must assign $u_2 \to v_1$.  The algorithm does not know
+this in advance.
+
+\paragraph{Step 1.}
+$M = \emptyset$.  Search from $u_1$ (free): find $v_1$ (free).
+Augmenting path $u_1\text{--}v_1$.  Augment.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw[line width=2pt, blue] (u1)--(v1);
+  \draw (u1)--(v2);
+  \draw (u2)--(v1);
+  \draw (u3)--(v2); \draw (u3)--(v3);
+  \draw (u4)--(v3); \draw (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+$M = \{(u_1, v_1)\}$, $|M| = 1$.
+
+\paragraph{Step 2.}
+Search from $u_3$ (free): find $v_2$ (free).
+Augmenting path $u_3\text{--}v_2$.  Augment.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw[line width=2pt, blue] (u1)--(v1);
+  \draw (u1)--(v2);
+  \draw (u2)--(v1);
+  \draw[line width=2pt, blue] (u3)--(v2);
+  \draw (u3)--(v3);
+  \draw (u4)--(v3); \draw (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+$M = \{(u_1, v_1),\, (u_3, v_2)\}$, $|M| = 2$.
+
+\paragraph{Step 3.}
+Search from $u_4$ (free): find $v_3$ (free).
+Augmenting path $u_4\text{--}v_3$.  Augment.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw[line width=2pt, blue] (u1)--(v1);
+  \draw (u1)--(v2);
+  \draw (u2)--(v1);
+  \draw[line width=2pt, blue] (u3)--(v2);
+  \draw (u3)--(v3);
+  \draw[line width=2pt, blue] (u4)--(v3);
+  \draw (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+$M = \{(u_1, v_1),\, (u_3, v_2),\, (u_4, v_3)\}$, $|M| = 3$.
+
+\paragraph{Step 4.}
+The only free vertex in $U$ is $u_2$.  Its sole neighbour is
+$v_1$, which is matched to $u_1$.  No free vertex is directly
+reachable, so BFS must follow alternating edges through the
+matching:
+
+\[
+  \underset{\text{free}}{u_2}
+  \xrightarrow{\;\text{unmatched}\;}
+  v_1
+  \xrightarrow{\;\text{matched}\;}
+  u_1
+  \xrightarrow{\;\text{unmatched}\;}
+  v_2
+  \xrightarrow{\;\text{matched}\;}
+  u_3
+  \xrightarrow{\;\text{unmatched}\;}
+  v_3
+  \xrightarrow{\;\text{matched}\;}
+  u_4
+  \xrightarrow{\;\text{unmatched}\;}
+  \underset{\text{free}}{v_4}
+\]
+
+This is an augmenting path of length~7 (four unmatched edges,
+three matched edges).  Flipping every edge along the path yields:
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw (u1)--(v1);
+  \draw[line width=2pt, blue] (u1)--(v2);
+  \draw[line width=2pt, blue] (u2)--(v1);
+  \draw (u3)--(v2);
+  \draw[line width=2pt, blue] (u3)--(v3);
+  \draw (u4)--(v3);
+  \draw[line width=2pt, blue] (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+$M = \{(u_2, v_1),\, (u_1, v_2),\, (u_3, v_3),\, (u_4, v_4)\}$,
+$|M| = 4$.  This is a perfect matching.
+
+\paragraph{Step 5.}
+No free vertices remain.  No augmenting path exists.  By Berge's
+theorem, $M$ is a maximum matching.
+
+\medskip
+The key observation is Step~4: the algorithm rerouted three
+existing matched edges through a single augmenting path.  The
+``cascade'' $v_1 \to u_1 \to v_2 \to u_3 \to v_3 \to u_4$
+displaced every previous assignment to make room for $u_2$.
+Without this ability to undo prior choices, a greedy algorithm
+would be stuck at $|M| = 3$.
+
 % =====================================================================
 \section{From Matchings to Network Flow}
 % =====================================================================
