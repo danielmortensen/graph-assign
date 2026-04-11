@@ -1,0 +1,811 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+
+\title{From Matchings to Max-Flow Min-Cut}
+\author{Daniel Mortensen}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+% =====================================================================
+\section{Matchings and Alternating Paths}
+% =====================================================================
+
+\subsection{Bipartite Graphs}
+
+A \textbf{bipartite graph} $G = (U \cup V, E)$ has two disjoint
+vertex sets with edges only between them.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,2,3} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw (u1)--(v1); \draw (u1)--(v2);
+  \draw (u2)--(v2); \draw (u2)--(v3);
+  \draw (u3)--(v1);
+\end{tikzpicture}
+\end{center}
+
+The fundamental question is: \emph{how many independent pairs
+can we match?}
+
+\subsection{Matchings}
+
+A \textbf{matching} $M \subseteq E$ is a set of edges with no
+shared endpoints.  A vertex is \textbf{matched} if it belongs to
+some edge in $M$; otherwise it is \textbf{free}.  A
+\textbf{maximum matching} maximises $|M|$.  A \textbf{perfect
+matching} matches every vertex ($|M| = |U| = |V|$).
+
+\subsection{Alternating and Augmenting Paths}
+
+Given a matching $M$, an \textbf{alternating path} alternates
+between edges in $M$ and edges not in $M$.  An
+\textbf{augmenting path} is an alternating path whose two
+endpoints are both free.
+
+If an augmenting path exists, flipping every edge along it
+(matched $\leftrightarrow$ unmatched) yields a matching of size
+$|M| + 1$.
+
+\begin{theorem}[Berge, 1957]
+A matching $M$ is maximum if and only if there is no augmenting
+path with respect to $M$.
+\end{theorem}
+
+\subsection{Algorithm}
+
+Berge's theorem gives an algorithm: start with $M = \emptyset$,
+repeatedly search for an augmenting path $P$ (via BFS or DFS
+from free vertices), and set $M \gets M \oplus P$ (symmetric
+difference).  Stop when no augmenting path exists.  Each
+augmentation increases $|M|$ by one, so the algorithm terminates
+after at most $\lfloor |V|/2 \rfloor$ iterations.
+
+\subsection{Example: Augmenting Paths Step by Step}
+
+Consider the bipartite graph with $U = \{u_1, u_2, u_3, u_4\}$,
+$V = \{v_1, v_2, v_3, v_4\}$ and edges:
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw (u1)--(v1); \draw (u1)--(v2);
+  \draw (u2)--(v1);
+  \draw (u3)--(v2); \draw (u3)--(v3);
+  \draw (u4)--(v3); \draw (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+Note that $u_2$ has only one neighbour ($v_1$), so any perfect
+matching must assign $u_2 \to v_1$.  The algorithm does not know
+this in advance.
+
+\paragraph{Step 1.}
+$M = \emptyset$.  Search from $u_1$ (free): find $v_1$ (free).
+Augmenting path $u_1\text{--}v_1$.  Augment.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw[line width=2pt, blue] (u1)--(v1);
+  \draw (u1)--(v2);
+  \draw (u2)--(v1);
+  \draw (u3)--(v2); \draw (u3)--(v3);
+  \draw (u4)--(v3); \draw (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+$M = \{(u_1, v_1)\}$, $|M| = 1$.
+
+\paragraph{Step 2.}
+Search from $u_3$ (free): find $v_2$ (free).
+Augmenting path $u_3\text{--}v_2$.  Augment.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw[line width=2pt, blue] (u1)--(v1);
+  \draw (u1)--(v2);
+  \draw (u2)--(v1);
+  \draw[line width=2pt, blue] (u3)--(v2);
+  \draw (u3)--(v3);
+  \draw (u4)--(v3); \draw (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+$M = \{(u_1, v_1),\, (u_3, v_2)\}$, $|M| = 2$.
+
+\paragraph{Step 3.}
+Search from $u_4$ (free): find $v_3$ (free).
+Augmenting path $u_4\text{--}v_3$.  Augment.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw[line width=2pt, blue] (u1)--(v1);
+  \draw (u1)--(v2);
+  \draw (u2)--(v1);
+  \draw[line width=2pt, blue] (u3)--(v2);
+  \draw (u3)--(v3);
+  \draw[line width=2pt, blue] (u4)--(v3);
+  \draw (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+$M = \{(u_1, v_1),\, (u_3, v_2),\, (u_4, v_3)\}$, $|M| = 3$.
+
+\paragraph{Step 4.}
+The only free vertex in $U$ is $u_2$.  Its sole neighbour is
+$v_1$, which is matched to $u_1$.  No free vertex is directly
+reachable, so BFS must follow alternating edges through the
+matching:
+
+\[
+  \underset{\text{free}}{u_2}
+  \xrightarrow{\;\text{unmatched}\;}
+  v_1
+  \xrightarrow{\;\text{matched}\;}
+  u_1
+  \xrightarrow{\;\text{unmatched}\;}
+  v_2
+  \xrightarrow{\;\text{matched}\;}
+  u_3
+  \xrightarrow{\;\text{unmatched}\;}
+  v_3
+  \xrightarrow{\;\text{matched}\;}
+  u_4
+  \xrightarrow{\;\text{unmatched}\;}
+  \underset{\text{free}}{v_4}
+\]
+
+This is an augmenting path of length~7 (four unmatched edges,
+three matched edges).  Flipping every edge along the path yields:
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth]
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \draw (u1)--(v1);
+  \draw[line width=2pt, blue] (u1)--(v2);
+  \draw[line width=2pt, blue] (u2)--(v1);
+  \draw (u3)--(v2);
+  \draw[line width=2pt, blue] (u3)--(v3);
+  \draw (u4)--(v3);
+  \draw[line width=2pt, blue] (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+$M = \{(u_2, v_1),\, (u_1, v_2),\, (u_3, v_3),\, (u_4, v_4)\}$,
+$|M| = 4$.  This is a perfect matching.
+
+\paragraph{Step 5.}
+No free vertices remain.  No augmenting path exists.  By Berge's
+theorem, $M$ is a maximum matching.
+
+\medskip
+The key observation is Step~4: the algorithm rerouted three
+existing matched edges through a single augmenting path.  The
+``cascade'' $v_1 \to u_1 \to v_2 \to u_3 \to v_3 \to u_4$
+displaced every previous assignment to make room for $u_2$.
+Without this ability to undo prior choices, a greedy algorithm
+would be stuck at $|M| = 3$.
+
+% =====================================================================
+\section{From Matchings to Network Flow}
+% =====================================================================
+
+\subsection{Adding a Source and Sink}
+
+A bipartite matching problem is a network flow problem in
+disguise.  We convert the same graph from Section~1 into a flow
+network by adding a source $s$ with capacity-1 edges to every
+$u \in U$, a sink $t$ with capacity-1 edges from every
+$v \in V$, and directing the original edges from $U$ to $V$ with
+capacity~1.  All capacities are~1.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick]
+  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  \foreach \i in {1,...,4} {
+    \draw[->] (s)--(u\i);
+    \draw[->] (v\i)--(t);
+  }
+  \draw[->] (u1)--(v1); \draw[->] (u1)--(v2);
+  \draw[->] (u2)--(v1);
+  \draw[->] (u3)--(v2); \draw[->] (u3)--(v3);
+  \draw[->] (u4)--(v3); \draw[->] (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+An integer maximum flow in this network corresponds exactly to a
+maximum matching: each unit of flow along
+$s \to u_i \to v_j \to t$ represents the matched edge
+$(u_i, v_j)$.
+
+\subsection{Ford--Fulkerson on the Same Graph}
+
+We now trace the Ford--Fulkerson algorithm on this network.  At
+each step we show the residual graph, find an augmenting
+$s \to t$ path, and push one unit of flow.  Edges labelled with
+their residual capacity; forward edges are solid, backward edges
+are dashed.
+
+\paragraph{Iteration 1.}
+All flows are zero.  The residual graph equals the original
+network.  BFS from $s$ finds the path
+$s \to u_1 \to v_1 \to t$ with bottleneck
+$\delta = 1$.  Push 1 unit.
+
+Flow: $f(s,u_1) = f(u_1,v_1) = f(v_1,t) = 1$.  Total $|f| = 1$.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick, scale=0.95]
+  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  % s -> U: u1 saturated (backward only), rest forward
+  \draw[->, dashed] (u1)--(s);
+  \draw[->] (s)--(u2); \draw[->] (s)--(u3); \draw[->] (s)--(u4);
+  % V -> t: v1 saturated (backward only), rest forward
+  \draw[->, dashed] (t) to[bend left=15] (v1);
+  \draw[->] (v2)--(t); \draw[->] (v3)--(t); \draw[->] (v4)--(t);
+  % U -> V edges
+  \draw[->, dashed] (v1)--(u1);  % backward: f(u1,v1)=1
+  \draw[->] (u1)--(v2);          % forward: still unused
+  \draw[->] (u2)--(v1);          % forward: still unused
+  \draw[->] (u3)--(v2); \draw[->] (u3)--(v3);
+  \draw[->] (u4)--(v3); \draw[->] (u4)--(v4);
+\end{tikzpicture}
+\end{center}
+
+Note the backward edges $u_1 \dashleftarrow v_1$,
+$s \dashleftarrow u_1$, and $v_1 \dashleftarrow t$: these allow
+future iterations to undo this flow.
+
+\paragraph{Iteration 2.}
+BFS from $s$ finds $s \to u_3 \to v_2 \to t$.  Push 1 unit.
+
+Flow: additionally $f(s,u_3) = f(u_3,v_2) = f(v_2,t) = 1$.
+Total $|f| = 2$.
+
+\paragraph{Iteration 3.}
+BFS from $s$ finds $s \to u_4 \to v_3 \to t$.  Push 1 unit.
+
+Flow: additionally $f(s,u_4) = f(u_4,v_3) = f(v_3,t) = 1$.
+Total $|f| = 3$.
+
+The residual graph after three iterations:
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick, scale=0.95]
+  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  % s -> U: u1,u3,u4 saturated; u2 open
+  \draw[->, dashed] (u1)--(s);
+  \draw[->] (s)--(u2);
+  \draw[->, dashed] (u3)--(s);
+  \draw[->, dashed] (u4)--(s);
+  % V -> t: v1,v2,v3 saturated; v4 open
+  \draw[->, dashed] (t) to[bend left=15] (v1);
+  \draw[->, dashed] (t) to[bend left=15] (v2);
+  \draw[->, dashed] (t) to[bend left=15] (v3);
+  \draw[->] (v4)--(t);
+  % U -> V: saturated edges become backward; unused stay forward
+  \draw[->, dashed] (v1)--(u1);   % backward
+  \draw[->] (u1)--(v2);           % forward (unused)
+  \draw[->] (u2)--(v1);           % forward (unused)
+  \draw[->, dashed] (v2)--(u3);   % backward
+  \draw[->] (u3)--(v3);           % forward (unused)
+  \draw[->, dashed] (v3)--(u4);   % backward
+  \draw[->] (u4)--(v4);           % forward (unused)
+\end{tikzpicture}
+\end{center}
+
+\paragraph{Iteration 4.}
+BFS from $s$.  The only forward edge from $s$ is $s \to u_2$.
+From $u_2$, the only forward edge is $u_2 \to v_1$.  But
+$v_1 \to t$ is saturated (only the backward edge $t \to v_1$
+exists).  So BFS must use the backward edge $v_1 \to u_1$
+(undoing the flow $u_1 \to v_1$), then the forward edge
+$u_1 \to v_2$, then backward $v_2 \to u_3$, then forward
+$u_3 \to v_3$, then backward $v_3 \to u_4$, then forward
+$u_4 \to v_4$, then forward $v_4 \to t$.
+
+The augmenting path in the residual graph:
+\[
+  s \to u_2 \to v_1
+  \dashrightarrow u_1 \to v_2
+  \dashrightarrow u_3 \to v_3
+  \dashrightarrow u_4 \to v_4 \to t
+\]
+
+\noindent
+where $\to$ denotes a forward edge and $\dashrightarrow$ a
+backward edge (undoing existing flow).
+
+Bottleneck $\delta = 1$ (all residual capacities are~1).  Push
+1 unit along this path.  For each forward edge, increase flow by
+1; for each backward edge, \emph{decrease} flow by 1 on the
+reverse arc:
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lll}
+  \textbf{Edge in path} & \textbf{Type} & \textbf{Update} \\
+  \hline
+  $s \to u_2$    & forward  & $f(s,u_2) : 0 \to 1$ \\
+  $u_2 \to v_1$  & forward  & $f(u_2,v_1) : 0 \to 1$ \\
+  $v_1 \to u_1$  & backward & $f(u_1,v_1) : 1 \to 0$ \\
+  $u_1 \to v_2$  & forward  & $f(u_1,v_2) : 0 \to 1$ \\
+  $v_2 \to u_3$  & backward & $f(u_3,v_2) : 1 \to 0$ \\
+  $u_3 \to v_3$  & forward  & $f(u_3,v_3) : 0 \to 1$ \\
+  $v_3 \to u_4$  & backward & $f(u_4,v_3) : 1 \to 0$ \\
+  $u_4 \to v_4$  & forward  & $f(u_4,v_4) : 0 \to 1$ \\
+  $v_4 \to t$    & forward  & $f(v_4,t) : 0 \to 1$ \\
+\end{tabular}
+\end{center}
+
+\medskip
+Total $|f| = 4$.  The resulting flow (and corresponding matching):
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick, scale=0.95]
+  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  % flow-carrying edges in blue
+  \draw[->, line width=2pt, blue] (s)--(u1);
+  \draw[->, line width=2pt, blue] (s)--(u2);
+  \draw[->, line width=2pt, blue] (s)--(u3);
+  \draw[->, line width=2pt, blue] (s)--(u4);
+  \draw[->, line width=2pt, blue] (u2)--(v1);
+  \draw[->, line width=2pt, blue] (u1)--(v2);
+  \draw[->, line width=2pt, blue] (u3)--(v3);
+  \draw[->, line width=2pt, blue] (u4)--(v4);
+  \draw[->, line width=2pt, blue] (v1)--(t);
+  \draw[->, line width=2pt, blue] (v2)--(t);
+  \draw[->, line width=2pt, blue] (v3)--(t);
+  \draw[->, line width=2pt, blue] (v4)--(t);
+  % non-flow edges (thin gray)
+  \draw[->, gray, thin] (u1)--(v1);
+  \draw[->, gray, thin] (u2)--(v1);
+  \draw[->, gray, thin] (u3)--(v2);
+  \draw[->, gray, thin] (u4)--(v3);
+\end{tikzpicture}
+\end{center}
+
+\paragraph{Iteration 5.}
+In the residual graph, all edges from $s$ are saturated (backward
+only).  No $s \to t$ path exists.  The algorithm terminates.
+
+The set of vertices reachable from $s$ in the final residual
+graph is $S^* = \{s\}$ (no forward edge leaves $s$).  The
+minimum cut is $(\{s\}, V \setminus \{s\})$ with capacity~4,
+confirming $\max |f| = \min c(S,T) = 4$.
+
+\paragraph{Comparison with Section~1.}
+The flow in iteration~4 corresponds exactly to the augmenting
+path in Step~4 of the matching algorithm.  The backward edges in
+the residual graph play the same role as the matched edges in the
+alternating path: they let the algorithm \emph{undo} previous
+flow assignments.  Ford--Fulkerson on the flow network is the
+augmenting-paths algorithm in disguise.
+
+\subsection{Applications}
+
+Network flow models appear throughout combinatorics and applied
+mathematics: bipartite matching (job assignment, scheduling),
+transportation and logistics, telecommunications routing, image
+segmentation (min-cut separates foreground from background),
+baseball elimination, and---for our purposes---assigning
+components to lines.
+
+% =====================================================================
+\section{Formal Definitions: Flows and Cuts}
+% =====================================================================
+
+\subsection{Flow Networks}
+
+\begin{definition}[Network]
+A \textbf{network} is a directed graph $G = (V, E)$ with a
+non-negative capacity function $c : E \to \mathbb{R}_{\ge 0}$
+and no multiple arcs.  Without loss of generality, if
+$(u,v) \in E$ then $(v,u) \in E$ as well (add it with
+$c(v,u) = 0$ if absent).
+\end{definition}
+
+\begin{definition}[Flow network]
+If two vertices are distinguished---a \textbf{source} $s$ and a
+\textbf{sink} $t$---then $(G, c, s, t)$ is a \textbf{flow
+network}.
+\end{definition}
+
+\subsection{Flows}
+
+\begin{definition}[Flow]
+A \textbf{flow} is a function $f : E \to \mathbb{R}_{\ge 0}$
+satisfying:
+\begin{enumerate}
+  \item \textbf{Capacity}: $0 \le f(u,v) \le c(u,v)$ for all
+        $(u,v) \in E$.
+  \item \textbf{Conservation}: for every
+        $v \in V \setminus \{s,t\}$,
+        \[
+          \sum_{u:(u,v)\in E} f(u,v)
+          = \sum_{w:(v,w)\in E} f(v,w).
+        \]
+\end{enumerate}
+\end{definition}
+
+The \textbf{value} of a flow is
+$|f| = \sum_{v:(s,v)\in E} f(s,v)
+     - \sum_{u:(u,s)\in E} f(u,s)$.
+
+\subsection{Cuts}
+
+\begin{definition}[$s$-$t$ cut]
+An \textbf{$s$-$t$ cut} $(S, T)$ is a partition $V = S \cup T$
+with $s \in S$ and $t \in T$.  Its \textbf{capacity} is
+\[
+  c(S,T) = \sum_{\substack{u \in S,\, v \in T \\ (u,v) \in E}}
+           c(u,v).
+\]
+\end{definition}
+
+A cut is a bottleneck: it bounds the maximum flow that can cross
+from the $s$-side to the $t$-side.
+
+% =====================================================================
+\section{Beyond Bipartite Graphs}
+% =====================================================================
+
+Nothing in the definitions above requires a bipartite structure.
+The graph may have cycles, dense subgraphs, or arbitrary
+topology.  The reason is that every cut in a general graph
+\emph{already is} a bipartite bottleneck.
+
+\subsection{Every Cut Is a Bipartite Interface}
+
+Take any $s$-$t$ cut $(S, T)$ in an arbitrary directed graph.
+The edges crossing from $S$ to $T$ form a bipartite structure:
+each has one endpoint in $S$ and one in $T$.  Every unit of flow
+from $s$ to $t$ must cross this interface.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick]
+  % S side
+  \node[fill=blue!20] (s) at (0,0) {$s$};
+  \node (u) at (1.5,0.8) {$u$};
+  \node (v) at (1.5,-0.8) {$v$};
+  % T side
+  \node (x) at (4.5,0.8) {$x$};
+  \node (y) at (4.5,-0.8) {$y$};
+  \node[fill=red!20] (t) at (6,0) {$t$};
+  % Internal S edges (gray)
+  \draw[->, gray] (s)--(u);
+  \draw[->, gray] (s)--(v);
+  \draw[->, gray] (u)--(v);
+  % Cut edges (bold)
+  \draw[->, very thick, blue!70!black] (u)--(x);
+  \draw[->, very thick, blue!70!black] (u)--(y);
+  \draw[->, very thick, blue!70!black] (v)--(y);
+  % Internal T edges (gray)
+  \draw[->, gray] (x)--(t);
+  \draw[->, gray] (y)--(t);
+  \draw[->, gray] (x)--(y);
+  % Region outlines
+  \draw[dashed, rounded corners] (-0.7,-1.5) rectangle (2.3,1.6);
+  \draw[dashed, rounded corners] (3.7,-1.5) rectangle (6.7,1.6);
+  \node[draw=none, font=\small] at (0.8,1.9) {$S$};
+  \node[draw=none, font=\small] at (5.2,1.9) {$T$};
+\end{tikzpicture}
+\end{center}
+
+The bold edges are the bipartite crossing; the gray edges are
+internal plumbing.
+
+\subsection{Internal Edges Are Lossless Plumbing}
+
+Flow conservation forces every internal node to output exactly
+what it receives.  The subgraph inside $S$ merely \emph{routes}
+flow from $s$ to the cut boundary---it cannot create or destroy
+flow.  Symmetrically, the subgraph inside $T$ routes flow from
+the boundary to $t$.
+
+Therefore, for any cut $(S,T)$:
+\[
+  |f|
+  = \underbrace{\sum_{\substack{u \in S,\, v \in T}} f(u,v)
+    }_{\text{flow across the cut}}
+  - \underbrace{\sum_{\substack{u \in T,\, v \in S}} f(u,v)
+    }_{\text{flow back across}}
+  \le c(S,T).
+\]
+The bottleneck is always at the bipartite crossing, never inside
+either side.
+
+\subsection{Nested Cuts Capture Internal Limits}
+
+An immediate objection: what if the edges \emph{inside} $S$ are
+too narrow to deliver flow to the cut boundary?  Then a tighter
+cut exists that captures the true bottleneck.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick]
+  \node[fill=blue!20] (s) at (0,0) {$s$};
+  \node (u) at (1.8,0.8) {$u$};
+  \node (v) at (1.8,-0.8) {$v$};
+  \node (x) at (4.2,0.8) {$x$};
+  \node (y) at (4.2,-0.8) {$y$};
+  \node[fill=red!20] (t) at (6,0) {$t$};
+  % Narrow internal edges (the real bottleneck)
+  \draw[->, very thick, orange] (s) -- node[above, draw=none,
+    font=\scriptsize]{2} (u);
+  \draw[->, very thick, orange] (s) -- node[below, draw=none,
+    font=\scriptsize]{1} (v);
+  % Wide cut edges
+  \draw[->] (u) -- node[above, draw=none, font=\scriptsize]{10} (x);
+  \draw[->] (v) -- node[below, draw=none, font=\scriptsize]{10} (y);
+  \draw[->, gray] (x)--(t);
+  \draw[->, gray] (y)--(t);
+  % Wider cut (blue, dashed)
+  \draw[dashed, rounded corners, blue!50, thick]
+    (-0.7,-1.5) rectangle (2.6,1.6);
+  \node[draw=none, font=\small, blue!50] at (0.95,1.9)
+    {$S$: cap $= 20$};
+  % Tighter cut (orange, dashed)
+  \draw[dashed, rounded corners, orange, thick]
+    (-0.5,-1.3) rectangle (0.5,1.4);
+  \node[draw=none, font=\small, orange] at (0,-1.6)
+    {$S'$: cap $= 3$};
+\end{tikzpicture}
+\end{center}
+
+The cut $(S, T)$ has capacity~20 at the bipartite crossing, but
+the edges leaving $s$ can carry only~3.  The tighter cut
+$S' = \{s\}$ exposes the real bottleneck with capacity~3.
+
+Internal limitations never hide from cuts---they just mean the
+minimum cut is closer to $s$ (or $t$).  Every general graph is a
+chain of bipartite bottlenecks; the minimum cut finds the
+tightest one.
+
+% =====================================================================
+\section{The Max-Flow Min-Cut Theorem}
+% =====================================================================
+
+\subsection{Statement}
+
+\begin{theorem}[Ford--Fulkerson, 1956]
+\label{thm:mfmc}
+In any flow network $(G, c, s, t)$,
+\[
+  \max_f |f| = \min_{(S,T)} c(S,T).
+\]
+\end{theorem}
+
+The following are equivalent: (i)~$f$ is a maximum flow;
+(ii)~there is no augmenting path in the residual graph $G_f$;
+(iii)~$|f| = c(S,T)$ for some cut $(S,T)$.
+
+\subsection{Residual Graph}
+
+Given flow $f$, the \textbf{residual graph} $G_f = (V, E_f)$
+contains a \textbf{forward edge} $(u,v)$ with capacity
+$c_f(u,v) = c(u,v) - f(u,v)$ whenever this is positive, and a
+\textbf{backward edge} $(v,u)$ with capacity $c_f(v,u) = f(u,v)$
+whenever $f(u,v) > 0$.  An \textbf{augmenting path} is any
+$s \to t$ path in $G_f$.  Backward edges allow the algorithm to
+undo previously pushed flow---the same mechanism as augmenting
+paths in matching.
+
+\subsection{Proof of Weak Duality}
+
+\textbf{Claim.} For any flow $f$ and any cut $(S,T)$,
+$|f| \le c(S,T)$.
+
+\begin{proof}
+By flow conservation the net flow leaving $S$ equals $|f|$:
+\begin{align*}
+  |f|
+  &= \sum_{\substack{u \in S,\, v \in T}}  f(u,v)
+   - \sum_{\substack{u \in T,\, v \in S}}  f(u,v)
+  \le \sum_{\substack{u \in S,\, v \in T}}  f(u,v)
+  \le \sum_{\substack{u \in S,\, v \in T}}  c(u,v)
+  = c(S,T).
+\end{align*}
+The first inequality drops a non-negative term; the second uses
+the capacity constraint.
+\end{proof}
+
+\subsection{Proof of Strong Duality}
+
+\textbf{Claim.} There exist $f^*$ and $(S^*,T^*)$ with
+$|f^*| = c(S^*,T^*)$.
+
+\begin{proof}
+Run Ford--Fulkerson until no augmenting path exists; call the
+resulting flow $f^*$.  Define
+\[
+  S^* = \{v \in V : v \text{ reachable from } s \text{ in }
+        G_{f^*}\}, \qquad T^* = V \setminus S^*.
+\]
+Since $t \notin S^*$, this is a valid cut.  For every edge
+$(u,v)$ with $u \in S^*$, $v \in T^*$ we have
+$f^*(u,v) = c(u,v)$---otherwise $v$ would be reachable via a
+forward edge.  For every edge $(v,u)$ with $v \in T^*$,
+$u \in S^*$ we have $f^*(v,u) = 0$---otherwise $v$ would be
+reachable via a backward edge.  Therefore
+\[
+  |f^*|
+  = \sum_{\substack{u \in S^*,\, v \in T^*}} f^*(u,v)
+  - \sum_{\substack{v \in T^*,\, u \in S^*}} f^*(v,u)
+  = c(S^*,T^*) - 0
+  = c(S^*,T^*).
+\]
+By weak duality $f^*$ is maximum and $(S^*,T^*)$ is minimum.
+\end{proof}
+
+% =====================================================================
+\section{Algorithm and Examples}
+% =====================================================================
+
+\subsection{Ford--Fulkerson}
+
+\noindent\textbf{Input:} Flow network $(G, c, s, t)$.\\
+\textbf{Output:} Maximum flow $f$.
+
+\medskip
+\begin{enumerate}
+  \item Set $f(u,v) \gets 0$ for all $(u,v) \in E$.
+  \item While there exists an augmenting path $P$ in $G_f$:
+    \begin{enumerate}
+      \item Let $\delta = \min_{(u,v) \in P} c_f(u,v)$.
+      \item For each forward edge $(u,v) \in P$, set
+            $f(u,v) \gets f(u,v) + \delta$.
+      \item For each backward edge $(v,u) \in P$, set
+            $f(v,u) \gets f(v,u) - \delta$.
+    \end{enumerate}
+  \item Return $f$.
+\end{enumerate}
+
+\medskip
+The \textbf{Edmonds--Karp} variant uses BFS to find the shortest
+augmenting path, giving worst-case complexity $O(VE^2)$.
+
+\subsection{Example}
+
+We trace the algorithm on a small network: start with zero flow,
+find an augmenting $s$-$t$ path in the residual graph, push flow
+along it, update the residual graph (forward edges shrink,
+backward edges appear), and repeat.  When no path exists, the
+vertices reachable from $s$ in the final residual graph form
+$S^*$; the cut $(S^*, V \setminus S^*)$ is the minimum cut.
+
+% =====================================================================
+\section{Summary and Related Results}
+% =====================================================================
+
+The max-flow min-cut theorem is the cornerstone of a family of
+duality results in combinatorics.
+
+\subsection{Hall's Theorem}
+
+\begin{theorem}[Hall, 1935]
+A bipartite graph $G = (U \cup V, E)$ has a matching saturating
+every vertex in $U$ iff $|N(S)| \ge |S|$ for all
+$S \subseteq U$.
+\end{theorem}
+
+Hall's condition is equivalent to every $s$-$t$ cut having
+capacity at least $|U|$ in the corresponding flow network.
+
+\subsection{Birkhoff--von Neumann Theorem}
+
+\begin{theorem}[Birkhoff, 1946; von Neumann, 1953]
+Every doubly stochastic matrix is a convex combination of
+permutation matrices.
+\end{theorem}
+
+A doubly stochastic matrix has non-negative entries with rows
+and columns summing to~1.  The theorem says the LP relaxation of
+bipartite matching has no integrality gap: any fractional
+matching decomposes into integer matchings.
+
+\subsection{K\"onig--Egerv\'ary Theorem}
+
+\begin{theorem}[K\"onig, 1931; Egerv\'ary, 1931]
+In a bipartite graph, the size of a maximum matching equals the
+size of a minimum vertex cover.
+\end{theorem}
+
+A vertex cover is a set of vertices touching every edge.  The
+minimum vertex cover corresponds to a minimum cut in the flow
+network.
+
+\subsection{Menger's Theorem}
+
+\begin{theorem}[Menger, 1927]
+The maximum number of vertex-disjoint $s$-$t$ paths equals the
+minimum number of vertices (other than $s,t$) whose removal
+disconnects $s$ from $t$.
+\end{theorem}
+
+The edge-disjoint version---max edge-disjoint paths equals min
+edge cut---is a direct corollary of max-flow min-cut with unit
+capacities.
+
+\subsection{Unifying View}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{l|l}
+  \textbf{Result} & \textbf{Says} \\
+  \hline
+  Max-flow min-cut & max throughput $=$ min bottleneck \\
+  Hall & perfect matching $\iff$ no small neighbourhood \\
+  Birkhoff--von Neumann & fractional matching $=$ integer matching \\
+  K\"onig--Egerv\'ary & max matching $=$ min vertex cover \\
+  Menger & max disjoint paths $=$ min separator
+\end{tabular}
+\end{center}
+
+All are facets of the same duality: \textbf{what you can push
+through a network equals what it takes to block it}.
+
+\end{document}
