@@ -507,6 +507,43 @@ gray edges are internal plumbing.  No matter what happens inside
 $S$ or $T$, flow from $s$ to $t$ cannot exceed~5 through this
 cut.
 
+From the perspective of the cut, the internal structure on each
+side is irrelevant---only the crossing matters:
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, thick]
+  % Source
+  \node[circle, draw, fill=blue!20, minimum size=6mm, inner sep=0pt]
+    (s) at (0,0) {$s$};
+  % S-side black box
+  \node[draw, fill=black!80, rounded corners, minimum width=1.4cm,
+    minimum height=2.4cm, text=white, font=\small, align=center]
+    (sbox) at (2,0) {$S \setminus \{s\}$};
+  % T-side black box
+  \node[draw, fill=black!80, rounded corners, minimum width=1.4cm,
+    minimum height=2.4cm, text=white, font=\small, align=center]
+    (tbox) at (6,0) {$T \setminus \{t\}$};
+  % Sink
+  \node[circle, draw, fill=red!20, minimum size=6mm, inner sep=0pt]
+    (t) at (8,0) {$t$};
+  % s to S-box
+  \draw[->] (s) -- (sbox);
+  % Cut edges (bipartite crossing)
+  \draw[->, very thick, blue!70!black] (sbox.20) -- (tbox.160);
+  \draw[->, very thick, blue!70!black] (sbox.0) -- (tbox.180);
+  \draw[->, very thick, blue!70!black] (sbox.-20) -- (tbox.200);
+  % T-box to t
+  \draw[->] (tbox) -- (t);
+  % Label
+  \node[draw=none, font=\small] at (4, -1.8)
+    {bipartite crossing: capacity $= 5$};
+\end{tikzpicture}
+\end{center}
+
+The black boxes hide arbitrarily complex subgraphs.  All that
+determines the throughput bound is the capacity of the edges
+between them.
+
 \subsection{Internal Edges Are Lossless Plumbing}
 
 Flow conservation forces every internal node to output exactly
