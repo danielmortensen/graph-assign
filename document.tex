@@ -464,44 +464,48 @@ bipartite bottleneck.
 
 \subsection{Every Cut Is a Bipartite Interface}
 
-Take any $s$-$t$ cut $(S, T)$ in an arbitrary directed graph.
-The edges crossing from $S$ to $T$ form a bipartite structure:
-each has one endpoint in $S$ and one in $T$.  Every unit of flow
-from $s$ to $t$ must cross this interface.
+Take any $s$-$t$ cut $(S, T)$ in a directed graph.  The edges
+crossing from $S$ to $T$ form a bipartite structure: each has
+one endpoint in $S$ and one in $T$.  Every unit of flow from $s$
+to $t$ must cross this interface.
+
+Consider the cut $S = \{s, u_1, u_2\}$,
+$T = \{u_3, u_4, v_1, v_2, v_3, v_4, t\}$ in our flow network:
 
 \begin{center}
 \begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
-  inner sep=0pt}, >=Stealth, thick]
-  % S side
-  \node[fill=blue!20] (s) at (0,0) {$s$};
-  \node (u) at (1.5,0.8) {$u$};
-  \node (v) at (1.5,-0.8) {$v$};
-  % T side
-  \node (x) at (4.5,0.8) {$x$};
-  \node (y) at (4.5,-0.8) {$y$};
-  \node[fill=red!20] (t) at (6,0) {$t$};
+  inner sep=0pt}, >=Stealth, thick, scale=0.95]
+  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
   % Internal S edges (gray)
-  \draw[->, gray] (s)--(u);
-  \draw[->, gray] (s)--(v);
-  \draw[->, gray] (u)--(v);
-  % Cut edges (bold)
-  \draw[->, very thick, blue!70!black] (u)--(x);
-  \draw[->, very thick, blue!70!black] (u)--(y);
-  \draw[->, very thick, blue!70!black] (v)--(y);
-  % Internal T edges (gray)
-  \draw[->, gray] (x)--(t);
-  \draw[->, gray] (y)--(t);
-  \draw[->, gray] (x)--(y);
+  \draw[->, gray] (s)--(u1);
+  \draw[->, gray] (s)--(u2);
+  % Cut edges (bold) -- from S to T
+  \draw[->, very thick, blue!70!black] (s)--(u3);
+  \draw[->, very thick, blue!70!black] (s)--(u4);
+  \draw[->, very thick, blue!70!black] (u1)--(v1);
+  \draw[->, very thick, blue!70!black] (u1)--(v2);
+  \draw[->, very thick, blue!70!black] (u2)--(v1);
+  % Edges entirely in T (gray)
+  \draw[->, gray] (u3)--(v2); \draw[->, gray] (u3)--(v3);
+  \draw[->, gray] (u4)--(v3); \draw[->, gray] (u4)--(v4);
+  \foreach \i in {1,...,4} { \draw[->, gray] (v\i)--(t); }
   % Region outlines
-  \draw[dashed, rounded corners] (-0.7,-1.5) rectangle (2.3,1.6);
-  \draw[dashed, rounded corners] (3.7,-1.5) rectangle (6.7,1.6);
-  \node[draw=none, font=\small] at (0.8,1.9) {$S$};
-  \node[draw=none, font=\small] at (5.2,1.9) {$T$};
+  \draw[dashed, rounded corners] (-2.8,-3.0) rectangle (0.8,-0.5);
+  \draw[dashed, rounded corners] (-0.8,-4.8) rectangle (5.8,-0.5);
+  \node[draw=none, font=\small] at (-1.0,-0.2) {$S$};
+  \node[draw=none, font=\small] at (2.5,-0.2) {$T$};
 \end{tikzpicture}
 \end{center}
 
-The bold edges are the bipartite crossing; the gray edges are
-internal plumbing.
+The five bold edges are the bipartite crossing (capacity~5); the
+gray edges are internal plumbing.  No matter what happens inside
+$S$ or $T$, flow from $s$ to $t$ cannot exceed~5 through this
+cut.
 
 \subsection{Internal Edges Are Lossless Plumbing}
 
@@ -510,6 +514,10 @@ what it receives.  The subgraph inside $S$ merely \emph{routes}
 flow from $s$ to the cut boundary---it cannot create or destroy
 flow.  Symmetrically, the subgraph inside $T$ routes flow from
 the boundary to $t$.
+
+In our example, $u_1$ and $u_2$ sit inside $S$.  They receive
+flow from $s$ and pass all of it across the cut to $v_1$ and
+$v_2$.  They are plumbing, not bottlenecks.
 
 Therefore, for any cut $(S,T)$:
 \[
@@ -529,41 +537,44 @@ An immediate objection: what if the edges \emph{inside} $S$ are
 too narrow to deliver flow to the cut boundary?  Then a tighter
 cut exists that captures the true bottleneck.
 
+Compare two cuts in our flow network:
+
 \begin{center}
 \begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
-  inner sep=0pt}, >=Stealth, thick]
-  \node[fill=blue!20] (s) at (0,0) {$s$};
-  \node (u) at (1.8,0.8) {$u$};
-  \node (v) at (1.8,-0.8) {$v$};
-  \node (x) at (4.2,0.8) {$x$};
-  \node (y) at (4.2,-0.8) {$y$};
-  \node[fill=red!20] (t) at (6,0) {$t$};
-  % Narrow internal edges (the real bottleneck)
-  \draw[->, very thick, orange] (s) -- node[above, draw=none,
-    font=\scriptsize]{2} (u);
-  \draw[->, very thick, orange] (s) -- node[below, draw=none,
-    font=\scriptsize]{1} (v);
-  % Wide cut edges
-  \draw[->] (u) -- node[above, draw=none, font=\scriptsize]{10} (x);
-  \draw[->] (v) -- node[below, draw=none, font=\scriptsize]{10} (y);
-  \draw[->, gray] (x)--(t);
-  \draw[->, gray] (y)--(t);
-  % Wider cut (blue, dashed)
+  inner sep=0pt}, >=Stealth, thick, scale=0.95]
+  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \foreach \i in {1,...,4} {
+    \node (u\i) at (0, -\i) {$u_\i$};
+    \node (v\i) at (3, -\i) {$v_\i$};
+  }
+  % All edges
+  \foreach \i in {1,...,4} {
+    \draw[->] (s)--(u\i);
+    \draw[->] (v\i)--(t);
+  }
+  \draw[->] (u1)--(v1); \draw[->] (u1)--(v2);
+  \draw[->] (u2)--(v1);
+  \draw[->] (u3)--(v2); \draw[->] (u3)--(v3);
+  \draw[->] (u4)--(v3); \draw[->] (u4)--(v4);
+  % Wider cut: S = {s, u1, u2, u3, u4}
   \draw[dashed, rounded corners, blue!50, thick]
-    (-0.7,-1.5) rectangle (2.6,1.6);
-  \node[draw=none, font=\small, blue!50] at (0.95,1.9)
-    {$S$: cap $= 20$};
-  % Tighter cut (orange, dashed)
+    (-2.8,-4.8) rectangle (0.8,-0.5);
+  \node[draw=none, font=\small, blue!50] at (-1.0,-0.2)
+    {$S$: cap $= 7$};
+  % Tighter cut: S' = {s}
   \draw[dashed, rounded corners, orange, thick]
-    (-0.5,-1.3) rectangle (0.5,1.4);
-  \node[draw=none, font=\small, orange] at (0,-1.6)
-    {$S'$: cap $= 3$};
+    (-2.7,-3.2) rectangle (-1.3,-1.8);
+  \node[draw=none, font=\small, orange] at (-2,-3.5)
+    {$S'$: cap $= 4$};
 \end{tikzpicture}
 \end{center}
 
-The cut $(S, T)$ has capacity~20 at the bipartite crossing, but
-the edges leaving $s$ can carry only~3.  The tighter cut
-$S' = \{s\}$ exposes the real bottleneck with capacity~3.
+The wider cut $S = \{s, u_1, u_2, u_3, u_4\}$ has 7 edges
+crossing to $V$ (capacity~7).  But $s$ has only 4 outgoing
+edges, so the internal plumbing cannot deliver more than~4 to the
+boundary.  The tighter cut $S' = \{s\}$ exposes the real
+bottleneck: capacity~4.
 
 Internal limitations never hide from cuts---they just mean the
 minimum cut is closer to $s$ (or $t$).  Every general graph is a
