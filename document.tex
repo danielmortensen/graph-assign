@@ -454,68 +454,13 @@ baseball elimination, and---for our purposes---assigning
 components to lines.
 
 % =====================================================================
-\section{Formal Definitions: Flows and Cuts}
-% =====================================================================
-
-\subsection{Flow Networks}
-
-\begin{definition}[Network]
-A \textbf{network} is a directed graph $G = (V, E)$ with a
-non-negative capacity function $c : E \to \mathbb{R}_{\ge 0}$
-and no multiple arcs.  Without loss of generality, if
-$(u,v) \in E$ then $(v,u) \in E$ as well (add it with
-$c(v,u) = 0$ if absent).
-\end{definition}
-
-\begin{definition}[Flow network]
-If two vertices are distinguished---a \textbf{source} $s$ and a
-\textbf{sink} $t$---then $(G, c, s, t)$ is a \textbf{flow
-network}.
-\end{definition}
-
-\subsection{Flows}
-
-\begin{definition}[Flow]
-A \textbf{flow} is a function $f : E \to \mathbb{R}_{\ge 0}$
-satisfying:
-\begin{enumerate}
-  \item \textbf{Capacity}: $0 \le f(u,v) \le c(u,v)$ for all
-        $(u,v) \in E$.
-  \item \textbf{Conservation}: for every
-        $v \in V \setminus \{s,t\}$,
-        \[
-          \sum_{u:(u,v)\in E} f(u,v)
-          = \sum_{w:(v,w)\in E} f(v,w).
-        \]
-\end{enumerate}
-\end{definition}
-
-The \textbf{value} of a flow is
-$|f| = \sum_{v:(s,v)\in E} f(s,v)
-     - \sum_{u:(u,s)\in E} f(u,s)$.
-
-\subsection{Cuts}
-
-\begin{definition}[$s$-$t$ cut]
-An \textbf{$s$-$t$ cut} $(S, T)$ is a partition $V = S \cup T$
-with $s \in S$ and $t \in T$.  Its \textbf{capacity} is
-\[
-  c(S,T) = \sum_{\substack{u \in S,\, v \in T \\ (u,v) \in E}}
-           c(u,v).
-\]
-\end{definition}
-
-A cut is a bottleneck: it bounds the maximum flow that can cross
-from the $s$-side to the $t$-side.
-
-% =====================================================================
 \section{Beyond Bipartite Graphs}
 % =====================================================================
 
-Nothing in the definitions above requires a bipartite structure.
-The graph may have cycles, dense subgraphs, or arbitrary
-topology.  The reason is that every cut in a general graph
-\emph{already is} a bipartite bottleneck.
+The bipartite flow network above has a simple layered structure,
+but flow and cuts apply to arbitrary directed graphs.  The reason
+is that every cut in a general graph \emph{already is} a
+bipartite bottleneck.
 
 \subsection{Every Cut Is a Bipartite Interface}
 
@@ -624,6 +569,63 @@ Internal limitations never hide from cuts---they just mean the
 minimum cut is closer to $s$ (or $t$).  Every general graph is a
 chain of bipartite bottlenecks; the minimum cut finds the
 tightest one.
+
+% =====================================================================
+\section{Formal Definitions: Flows and Cuts}
+% =====================================================================
+
+We now make the preceding intuition precise.
+
+\subsection{Flow Networks}
+
+\begin{definition}[Network]
+A \textbf{network} is a directed graph $G = (V, E)$ with a
+non-negative capacity function $c : E \to \mathbb{R}_{\ge 0}$
+and no multiple arcs.  Without loss of generality, if
+$(u,v) \in E$ then $(v,u) \in E$ as well (add it with
+$c(v,u) = 0$ if absent).
+\end{definition}
+
+\begin{definition}[Flow network]
+If two vertices are distinguished---a \textbf{source} $s$ and a
+\textbf{sink} $t$---then $(G, c, s, t)$ is a \textbf{flow
+network}.
+\end{definition}
+
+\subsection{Flows}
+
+\begin{definition}[Flow]
+A \textbf{flow} is a function $f : E \to \mathbb{R}_{\ge 0}$
+satisfying:
+\begin{enumerate}
+  \item \textbf{Capacity}: $0 \le f(u,v) \le c(u,v)$ for all
+        $(u,v) \in E$.
+  \item \textbf{Conservation}: for every
+        $v \in V \setminus \{s,t\}$,
+        \[
+          \sum_{u:(u,v)\in E} f(u,v)
+          = \sum_{w:(v,w)\in E} f(v,w).
+        \]
+\end{enumerate}
+\end{definition}
+
+The \textbf{value} of a flow is
+$|f| = \sum_{v:(s,v)\in E} f(s,v)
+     - \sum_{u:(u,s)\in E} f(u,s)$.
+
+\subsection{Cuts}
+
+\begin{definition}[$s$-$t$ cut]
+An \textbf{$s$-$t$ cut} $(S, T)$ is a partition $V = S \cup T$
+with $s \in S$ and $t \in T$.  Its \textbf{capacity} is
+\[
+  c(S,T) = \sum_{\substack{u \in S,\, v \in T \\ (u,v) \in E}}
+           c(u,v).
+\]
+\end{definition}
+
+A cut is a bottleneck: it bounds the maximum flow that can cross
+from the $s$-side to the $t$-side.
 
 % =====================================================================
 \section{The Max-Flow Min-Cut Theorem}
