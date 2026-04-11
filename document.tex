@@ -514,10 +514,116 @@ from the $s$-side to the $t$-side.
 
 Nothing in the definitions above requires a bipartite structure.
 The graph may have cycles, dense subgraphs, or arbitrary
-topology.  Capacity constraints and flow conservation apply
-identically, and the max-flow min-cut theorem holds for any
-directed graph.  Bipartite matching is simply a special case
-with unit capacities on a layered graph.
+topology.  The reason is that every cut in a general graph
+\emph{already is} a bipartite bottleneck.
+
+\subsection{Every Cut Is a Bipartite Interface}
+
+Take any $s$-$t$ cut $(S, T)$ in an arbitrary directed graph.
+The edges crossing from $S$ to $T$ form a bipartite structure:
+each has one endpoint in $S$ and one in $T$.  Every unit of flow
+from $s$ to $t$ must cross this interface.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick]
+  % S side
+  \node[fill=blue!20] (s) at (0,0) {$s$};
+  \node (u) at (1.5,0.8) {$u$};
+  \node (v) at (1.5,-0.8) {$v$};
+  % T side
+  \node (x) at (4.5,0.8) {$x$};
+  \node (y) at (4.5,-0.8) {$y$};
+  \node[fill=red!20] (t) at (6,0) {$t$};
+  % Internal S edges (gray)
+  \draw[->, gray] (s)--(u);
+  \draw[->, gray] (s)--(v);
+  \draw[->, gray] (u)--(v);
+  % Cut edges (bold)
+  \draw[->, very thick, blue!70!black] (u)--(x);
+  \draw[->, very thick, blue!70!black] (u)--(y);
+  \draw[->, very thick, blue!70!black] (v)--(y);
+  % Internal T edges (gray)
+  \draw[->, gray] (x)--(t);
+  \draw[->, gray] (y)--(t);
+  \draw[->, gray] (x)--(y);
+  % Region outlines
+  \draw[dashed, rounded corners] (-0.7,-1.5) rectangle (2.3,1.6);
+  \draw[dashed, rounded corners] (3.7,-1.5) rectangle (6.7,1.6);
+  \node[draw=none, font=\small] at (0.8,1.9) {$S$};
+  \node[draw=none, font=\small] at (5.2,1.9) {$T$};
+\end{tikzpicture}
+\end{center}
+
+The bold edges are the bipartite crossing; the gray edges are
+internal plumbing.
+
+\subsection{Internal Edges Are Lossless Plumbing}
+
+Flow conservation forces every internal node to output exactly
+what it receives.  The subgraph inside $S$ merely \emph{routes}
+flow from $s$ to the cut boundary---it cannot create or destroy
+flow.  Symmetrically, the subgraph inside $T$ routes flow from
+the boundary to $t$.
+
+Therefore, for any cut $(S,T)$:
+\[
+  |f|
+  = \underbrace{\sum_{\substack{u \in S,\, v \in T}} f(u,v)
+    }_{\text{flow across the cut}}
+  - \underbrace{\sum_{\substack{u \in T,\, v \in S}} f(u,v)
+    }_{\text{flow back across}}
+  \le c(S,T).
+\]
+The bottleneck is always at the bipartite crossing, never inside
+either side.
+
+\subsection{Nested Cuts Capture Internal Limits}
+
+An immediate objection: what if the edges \emph{inside} $S$ are
+too narrow to deliver flow to the cut boundary?  Then a tighter
+cut exists that captures the true bottleneck.
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick]
+  \node[fill=blue!20] (s) at (0,0) {$s$};
+  \node (u) at (1.8,0.8) {$u$};
+  \node (v) at (1.8,-0.8) {$v$};
+  \node (x) at (4.2,0.8) {$x$};
+  \node (y) at (4.2,-0.8) {$y$};
+  \node[fill=red!20] (t) at (6,0) {$t$};
+  % Narrow internal edges (the real bottleneck)
+  \draw[->, very thick, orange] (s) -- node[above, draw=none,
+    font=\scriptsize]{2} (u);
+  \draw[->, very thick, orange] (s) -- node[below, draw=none,
+    font=\scriptsize]{1} (v);
+  % Wide cut edges
+  \draw[->] (u) -- node[above, draw=none, font=\scriptsize]{10} (x);
+  \draw[->] (v) -- node[below, draw=none, font=\scriptsize]{10} (y);
+  \draw[->, gray] (x)--(t);
+  \draw[->, gray] (y)--(t);
+  % Wider cut (blue, dashed)
+  \draw[dashed, rounded corners, blue!50, thick]
+    (-0.7,-1.5) rectangle (2.6,1.6);
+  \node[draw=none, font=\small, blue!50] at (0.95,1.9)
+    {$S$: cap $= 20$};
+  % Tighter cut (orange, dashed)
+  \draw[dashed, rounded corners, orange, thick]
+    (-0.5,-1.3) rectangle (0.5,1.4);
+  \node[draw=none, font=\small, orange] at (0,-1.6)
+    {$S'$: cap $= 3$};
+\end{tikzpicture}
+\end{center}
+
+The cut $(S, T)$ has capacity~20 at the bipartite crossing, but
+the edges leaving $s$ can carry only~3.  The tighter cut
+$S' = \{s\}$ exposes the real bottleneck with capacity~3.
+
+Internal limitations never hide from cuts---they just mean the
+minimum cut is closer to $s$ (or $t$).  Every general graph is a
+chain of bipartite bottlenecks; the minimum cut finds the
+tightest one.
 
 % =====================================================================
 \section{The Max-Flow Min-Cut Theorem}
