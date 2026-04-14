@@ -1,15 +1,18 @@
 \documentclass[11pt]{article}
 
 \usepackage[margin=1in]{geometry}
+\usepackage{parskip}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta}
+\tikzset{lbl/.style={draw=none, fill=none, minimum size=0pt,
+  inner sep=1pt, font=\scriptsize}}
 
 \newtheorem{definition}{Definition}
 \newtheorem{theorem}{Theorem}
 
-\title{From Matchings to Max-Flow Min-Cut}
-\author{Daniel Mortensen}
+\title{Max-Flow Min-Cut\footnote{can't take credit, but it's sure catchy}}
+\author{Daniel Mortensen and Florance Lapierre}
 \date{\today}
 
 \begin{document}
@@ -18,31 +21,152 @@
 \newpage
 
 % =====================================================================
-\section{Matchings and Alternating Paths}
+\section{Introduction and Example}
 % =====================================================================
 
-\subsection{Bipartite Graphs}
-
-A \textbf{bipartite graph} $G = (U \cup V, E)$ has two disjoint
-vertex sets with edges only between them.
+Many problems reduce to pushing as much material as possible
+through a network of limited-capacity links.  Consider the
+following directed graph, where each edge has a maximum capacity:
 
 \begin{center}
 \begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
-  inner sep=0pt}, >=Stealth]
-  \foreach \i in {1,2,3} {
-    \node (u\i) at (0, -\i) {$u_\i$};
-    \node (v\i) at (3, -\i) {$v_\i$};
-  }
-  \draw (u1)--(v1); \draw (u1)--(v2);
-  \draw (u2)--(v2); \draw (u2)--(v3);
-  \draw (u3)--(v1);
+  inner sep=0pt}, >=Stealth, thick]
+  \node[fill=blue!20] (s) at (-2, 0) {$s$};
+  \node (a) at (1, 1.5)  {$a$};
+  \node (c) at (1, -1.5) {$c$};
+  \node (d) at (3.5, 0)  {$d$};
+  \node (b) at (6, 1.5)  {$b$};
+  \node (e) at (6, -1.5) {$e$};
+  \node[fill=red!20] (t) at (8.5, 0) {$t$};
+  % edges with capacity labels
+  \draw[->] (s) -- node[lbl, above left]  {9} (a);
+  \draw[->] (s) -- node[lbl, below left]  {8} (c);
+  \draw[->] (a) -- node[lbl, above]       {4} (b);
+  \draw[->] (a) -- node[lbl, left]        {3} (c);
+  \draw[->] (a) -- node[lbl, above, pos=0.4] {5} (d);
+  \draw[->] (c) -- node[lbl, below, pos=0.4] {4} (d);
+  \draw[->] (c) -- node[lbl, below]       {5} (e);
+  \draw[->] (d) -- node[lbl, above, pos=0.6] {3} (b);
+  \draw[->] (d) -- node[lbl, below, pos=0.6] {3} (e);
+  \draw[->] (b) -- node[lbl, above, pos=0.4] {2} (d);
+  \draw[->] (b) -- node[lbl, above right] {10} (t);
+  \draw[->] (e) -- node[lbl, below right] {10} (t);
 \end{tikzpicture}
 \end{center}
 
-The fundamental question is: \emph{how many independent pairs
-can we match?}
+We want to send flow from the \textbf{source} $s$ to the
+\textbf{sink} $t$.  Each edge can carry flow up to its capacity,
+and at every intermediate node, flow in must equal flow out.  The
+network has a rich structure: the node $d$ sits at the centre,
+the edges $b \to d$ and $d \to b$ form a cycle, and the
+cross-connections $a \to c$, $a \to d$, $c \to d$ create multiple
+overlapping routes from $s$ to $t$.  Different paths have
+different bottlenecks.
 
-\subsection{Matchings}
+The central question is: \emph{what is the maximum total flow
+from $s$ to $t$, and where is the bottleneck?}  We will develop
+the tools to answer this in Sections~2--4, then return to this
+network for a complete worked example in Section~4.
+
+\subsection{Definitions}
+
+\begin{definition}[Network]
+A \textbf{network} is a directed graph $G = (V, E)$ without multiple arcs that contains a
+non-negative capacity function $c : E \to \mathbb{R}_{\ge 0}$.
+\end{definition}
+
+\begin{definition}[Flow network]
+When a \textbf{network} contains a \textbf{source}, denoted $s$, and a \textbf{sink}, denoted $t$ \footnote{...because $t$ totally makes you think sink...}, then $(G, c, s, t)$ is said to be a \textbf{flow network}.
+\end{definition}
+
+\begin{definition}[Flow]
+A \textbf{flow} is a function $f : E \to \mathbb{R}_{\ge 0}$
+satisfying:
+\begin{enumerate}
+  \item \textbf{Capacity}: $0 \le f(u,v) \le c(u,v)$ for all
+        $(u,v) \in E$.
+  \item \textbf{Conservation}: for every
+        $v \in V \setminus \{s,t\}$,
+        \[
+          \sum_{u:(u,v)\in E} f(u,v)
+          = \sum_{w:(v,w)\in E} f(v,w).
+        \]
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[$s$-$t$ cut]
+An \textbf{$s$-$t$ cut} $(S, T)$ is a partition $V = S \cup T$
+with $s \in S$ and $t \in T$.  Its \textbf{capacity} is
+\[
+  c(S,T) = \sum_{\substack{u \in S,\, v \in T \\ (u,v) \in E}}
+           c(u,v).
+\]
+\end{definition}
+
+\section{Min-Cut/Max-Flow}
+
+The goal is to show that the maximum flow equals the minimum
+cut.  The argument has three parts:
+
+\begin{enumerate}
+  \item \textbf{Cuts bound flows} (Section~2.1)---we revisit
+        why every cut is a bipartite bottleneck in general graphs.
+  \item \textbf{Ford--Fulkerson algorithm} (Section~3)---we
+        construct an algorithm that repeatedly pushes flow along
+        augmenting paths until none remain.
+  \item \textbf{The theorem} (Section~4)---when the algorithm
+        terminates, the final residual graph reveals a cut whose
+        capacity equals the flow value, proving
+        $\max |f| = \min c(S,T)$.
+\end{enumerate}
+
+\subsection{Cuts Bound Flows}
+
+\textbf{Claim.} For any flow $f$ and any $s$-$t$ cut $(S,T)$,
+$|f| \le c(S,T)$.
+
+\begin{proof}
+Let $(S,T)$ be any $s$-$t$ cut and $f$ any flow.
+
+\medskip\noindent
+\textbf{Step 1.}  Every unit of flow from $s$ to $t$ must cross
+the cut at least once, because $s \in S$ and $t \in T$.  Some
+flow may also cross back from $T$ to $S$.  Therefore the value
+of the flow equals the \emph{net} flow across the cut:
+\[
+  |f|
+  = \underbrace{\sum_{\substack{u \in S \\ v \in T}} f(u,v)
+    }_{\text{flow from } S \text{ to } T}
+  \;-\; \underbrace{\sum_{\substack{u \in T \\ v \in S}} f(u,v)
+    }_{\text{flow from } T \text{ to } S}.
+\]
+
+\medskip\noindent
+\textbf{Step 2.}  The second sum is non-negative (all flows are
+$\ge 0$), so dropping it can only increase the right-hand side:
+\[
+  |f| \;\le\; \sum_{\substack{u \in S \\ v \in T}} f(u,v).
+\]
+
+\medskip\noindent
+\textbf{Step 3.}  Each term $f(u,v)$ satisfies the capacity
+constraint $f(u,v) \le c(u,v)$, so:
+\[
+  \sum_{\substack{u \in S \\ v \in T}} f(u,v)
+  \;\le\; \sum_{\substack{u \in S \\ v \in T}} c(u,v)
+  \;=\; c(S,T).
+\]
+\medskip\noindent
+and hence, $\;|f| \le c(S,T)$.
+\end{proof}
+
+The key insight is knowing that finding a flow $f$ and a cut $(S,T)$
+with $|f| = c(S,T)$ actually guarantees that $f$ is the maximum flow, and $(S,T)$ is a minimum cut.
+The max-flow min-cut theorem
+(Section~5) guarantees that such a pair always exists.
+
+\subsection{Are they Equal?}
+\subsubsection{Matchings}
 
 A \textbf{matching} $M \subseteq E$ is a set of edges with no
 shared endpoints.  A vertex is \textbf{matched} if it belongs to
@@ -50,7 +174,7 @@ some edge in $M$; otherwise it is \textbf{free}.  A
 \textbf{maximum matching} maximises $|M|$.  A \textbf{perfect
 matching} matches every vertex ($|M| = |U| = |V|$).
 
-\subsection{Alternating and Augmenting Paths}
+\subsubsection{Alternating and Augmenting Paths}
 
 Given a matching $M$, an \textbf{alternating path} alternates
 between edges in $M$ and edges not in $M$.  An
@@ -65,17 +189,6 @@ $|M| + 1$.
 A matching $M$ is maximum if and only if there is no augmenting
 path with respect to $M$.
 \end{theorem}
-
-\subsection{Algorithm}
-
-Berge's theorem gives an algorithm: start with $M = \emptyset$,
-repeatedly search for an augmenting path $P$ (via BFS or DFS
-from free vertices), and set $M \gets M \oplus P$ (symmetric
-difference).  Stop when no augmenting path exists.  Each
-augmentation increases $|M|$ by one, so the algorithm terminates
-after at most $\lfloor |V|/2 \rfloor$ iterations.
-
-\subsection{Example: Augmenting Paths Step by Step}
 
 Consider the bipartite graph with $U = \{u_1, u_2, u_3, u_4\}$,
 $V = \{v_1, v_2, v_3, v_4\}$ and edges:
@@ -224,17 +337,16 @@ Without this ability to undo prior choices, a greedy algorithm
 would be stuck at $|M| = 3$.
 
 % =====================================================================
-\section{From Matchings to Network Flow}
+\subsubsection{Beyond Bipartite}
 % =====================================================================
 
-\subsection{Adding a Source and Sink}
+Flow and cuts apply not only to bipartite networks but to
+arbitrary directed graphs.  The reason is that every cut in a
+general graph \emph{already is} a bipartite bottleneck.
 
-A bipartite matching problem is a network flow problem in
-disguise.  We convert the same graph from Section~1 into a flow
-network by adding a source $s$ with capacity-1 edges to every
-$u \in U$, a sink $t$ with capacity-1 edges from every
-$v \in V$, and directing the original edges from $U$ to $V$ with
-capacity~1.  All capacities are~1.
+To illustrate, consider the following flow network built from the
+bipartite graph in Section~1 by adding a source $s$ and sink $t$
+with unit-capacity edges:
 
 \begin{center}
 \begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
@@ -256,18 +368,139 @@ capacity~1.  All capacities are~1.
 \end{tikzpicture}
 \end{center}
 
+
+\subsection{Hall's Theorem}
+
+\begin{theorem}[Hall, 1935]
+A bipartite graph $G = (U \cup V, E)$ has a matching saturating
+every vertex in $U$ iff $|N(S)| \ge |S|$ for all
+$S \subseteq U$.
+\end{theorem}
+
+Hall's condition is equivalent to every $s$-$t$ cut having
+capacity at least $|U|$ in the corresponding flow network.
+
+\subsection{Every Cut Is a Bipartite Interface}
+
+Take any $s$-$t$ cut $(S, T)$ in a directed graph.  The edges
+crossing from $S$ to $T$ form a bipartite structure: each has
+one endpoint in $S$ and one in $T$.  Every unit of flow from $s$
+to $t$ must cross this interface.
+
+Consider the cut $S = \{s, u_1, u_2\}$,
+$T = \{u_3, u_4, v_1, v_2, v_3, v_4, t\}$ in our flow network:
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick, scale=0.95,
+  snode/.style={draw=blue, line width=1.5pt},
+  tnode/.style={draw=red, line width=1.5pt}]
+  \node[snode, fill=blue!20] (s) at (-2, -2.5) {$s$};
+  \node[tnode, fill=red!20]  (t) at (5, -2.5)  {$t$};
+  \node[snode] (u1) at (0, -1) {$u_1$};
+  \node[snode] (u2) at (0, -2) {$u_2$};
+  \node[tnode] (u3) at (0, -3) {$u_3$};
+  \node[tnode] (u4) at (0, -4) {$u_4$};
+  \foreach \i in {1,...,4} {
+    \node[tnode] (v\i) at (3, -\i) {$v_\i$};
+  }
+  % Internal S edges (gray)
+  \draw[->, gray] (s)--(u1);
+  \draw[->, gray] (s)--(u2);
+  % Cut edges (bold) -- from S to T
+  \draw[->, very thick, blue!70!black] (s)--(u3);
+  \draw[->, very thick, blue!70!black] (s)--(u4);
+  \draw[->, very thick, blue!70!black] (u1)--(v1);
+  \draw[->, very thick, blue!70!black] (u1)--(v2);
+  \draw[->, very thick, blue!70!black] (u2)--(v1);
+  % Edges entirely in T (gray)
+  \draw[->, gray] (u3)--(v2); \draw[->, gray] (u3)--(v3);
+  \draw[->, gray] (u4)--(v3); \draw[->, gray] (u4)--(v4);
+  \foreach \i in {1,...,4} { \draw[->, gray] (v\i)--(t); }
+\end{tikzpicture}
+\end{center}
+
+The five bold edges cross from
+\textcolor{blue}{$S = \{s, u_1, u_2\}$} to
+\textcolor{red}{$T = \{u_3, u_4, v_1, v_2, v_3, v_4, t\}$}
+(capacity~5); the gray edges are internal plumbing.  No matter
+what happens inside $S$ or $T$, flow from $s$ to $t$ cannot
+exceed~5 through this cut.
+
+From the perspective of the cut, the internal structure on each
+side is irrelevant---only the crossing matters:
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth, thick]
+  % Source
+  \node[circle, draw, fill=blue!20, minimum size=6mm, inner sep=0pt]
+    (s) at (0,0) {$s$};
+  % S-side black box
+  \node[draw, fill=black!80, rounded corners, minimum width=1.4cm,
+    minimum height=2.4cm, text=white, font=\small, align=center]
+    (sbox) at (2,0) {$S \setminus \{s\}$};
+  % T-side black box
+  \node[draw, fill=black!80, rounded corners, minimum width=1.4cm,
+    minimum height=2.4cm, text=white, font=\small, align=center]
+    (tbox) at (6,0) {$T \setminus \{t\}$};
+  % Sink
+  \node[circle, draw, fill=red!20, minimum size=6mm, inner sep=0pt]
+    (t) at (8,0) {$t$};
+  % s to S-box
+  \draw[->] (s) -- (sbox);
+  % Cut edges (bipartite crossing)
+  \draw[->, very thick, blue!70!black] (sbox.20) -- (tbox.160);
+  \draw[->, very thick, blue!70!black] (sbox.0) -- (tbox.180);
+  \draw[->, very thick, blue!70!black] (sbox.-20) -- (tbox.200);
+  % T-box to t
+  \draw[->] (tbox) -- (t);
+  % Label
+  \node[draw=none, font=\small] at (4, -1.8)
+    {bipartite crossing: capacity $= 5$};
+\end{tikzpicture}
+\end{center}
+
+The black boxes hide arbitrarily complex subgraphs.  All that
+determines the throughput bound is the capacity of the edges
+between them.
+
+% =====================================================================
+\section{The Ford--Fulkerson Algorithm}
+% =====================================================================
+
+\subsection{From Bipartite Matching to Network Flow}
+
+A bipartite matching problem is a network flow problem in
+disguise.  We convert the bipartite graph from Section~1 into a
+flow network by adding a source $s$ with capacity-1 edges to
+every $u \in U$, a sink $t$ with capacity-1 edges from every
+$v \in V$, and directing the original edges from $U$ to $V$ with
+capacity~1.  All capacities are~1.  (This is the same network
+introduced in Section~3.)
+
 An integer maximum flow in this network corresponds exactly to a
 maximum matching: each unit of flow along
 $s \to u_i \to v_j \to t$ represents the matched edge
 $(u_i, v_j)$.
 
-\subsection{Ford--Fulkerson on the Same Graph}
+\subsection{Residual Graphs and Augmenting Paths}
 
-We now trace the Ford--Fulkerson algorithm on this network.  At
-each step we show the residual graph, find an augmenting
-$s \to t$ path, and push one unit of flow.  Edges labelled with
-their residual capacity; forward edges are solid, backward edges
-are dashed.
+Given flow $f$, the \textbf{residual graph} $G_f = (V, E_f)$
+contains a \textbf{forward edge} $(u,v)$ with capacity
+$c_f(u,v) = c(u,v) - f(u,v)$ whenever this is positive, and a
+\textbf{backward edge} $(v,u)$ with capacity $c_f(v,u) = f(u,v)$
+whenever $f(u,v) > 0$.  An \textbf{augmenting path} is any
+$s \to t$ path in $G_f$.  Backward edges allow the algorithm to
+undo previously pushed flow---the same mechanism as augmenting
+paths in matching.
+
+\subsection{Ford--Fulkerson on the Bipartite Network}
+
+We now trace the Ford--Fulkerson algorithm on the bipartite flow
+network.  At each step we show the residual graph, find an
+augmenting $s \to t$ path, and push one unit of flow.  Edges
+labelled with their residual capacity; forward edges are solid,
+backward edges are dashed.
 
 \paragraph{Iteration 1.}
 All flows are zero.  The residual graph equals the original
@@ -444,236 +677,293 @@ alternating path: they let the algorithm \emph{undo} previous
 flow assignments.  Ford--Fulkerson on the flow network is the
 augmenting-paths algorithm in disguise.
 
-\subsection{Applications}
+This connection runs deeper: the minimum cut in the flow network
+corresponds to a \emph{minimum vertex cover} in the original
+bipartite graph---a smallest set of vertices that touches every
+edge.  The fact that max matching always equals min vertex cover
+in bipartite graphs is K\"onig's theorem (Section~5.2), and it is
+exactly what the max-flow min-cut theorem becomes when applied to
+bipartite matching.
 
-Network flow models appear throughout combinatorics and applied
-mathematics: bipartite matching (job assignment, scheduling),
-transportation and logistics, telecommunications routing, image
-segmentation (min-cut separates foreground from background),
-baseball elimination, and---for our purposes---assigning
-components to lines.
+\subsection{Max-Flow Algorithm}
 
-% =====================================================================
-\section{Beyond Bipartite Graphs}
-% =====================================================================
+\noindent\textbf{Input:} Flow network $(G, c, s, t)$.\\
+\textbf{Output:} Maximum flow $f$.
 
-The bipartite flow network above has a simple layered structure,
-but flow and cuts apply to arbitrary directed graphs.  The reason
-is that every cut in a general graph \emph{already is} a
-bipartite bottleneck.
-
-\subsection{Every Cut Is a Bipartite Interface}
-
-Take any $s$-$t$ cut $(S, T)$ in a directed graph.  The edges
-crossing from $S$ to $T$ form a bipartite structure: each has
-one endpoint in $S$ and one in $T$.  Every unit of flow from $s$
-to $t$ must cross this interface.
-
-Consider the cut $S = \{s, u_1, u_2\}$,
-$T = \{u_3, u_4, v_1, v_2, v_3, v_4, t\}$ in our flow network:
-
-\begin{center}
-\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
-  inner sep=0pt}, >=Stealth, thick, scale=0.95]
-  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
-  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
-  \foreach \i in {1,...,4} {
-    \node (u\i) at (0, -\i) {$u_\i$};
-    \node (v\i) at (3, -\i) {$v_\i$};
-  }
-  % Internal S edges (gray)
-  \draw[->, gray] (s)--(u1);
-  \draw[->, gray] (s)--(u2);
-  % Cut edges (bold) -- from S to T
-  \draw[->, very thick, blue!70!black] (s)--(u3);
-  \draw[->, very thick, blue!70!black] (s)--(u4);
-  \draw[->, very thick, blue!70!black] (u1)--(v1);
-  \draw[->, very thick, blue!70!black] (u1)--(v2);
-  \draw[->, very thick, blue!70!black] (u2)--(v1);
-  % Edges entirely in T (gray)
-  \draw[->, gray] (u3)--(v2); \draw[->, gray] (u3)--(v3);
-  \draw[->, gray] (u4)--(v3); \draw[->, gray] (u4)--(v4);
-  \foreach \i in {1,...,4} { \draw[->, gray] (v\i)--(t); }
-  % Region outlines
-  \draw[dashed, rounded corners] (-2.8,-3.0) rectangle (0.8,-0.5);
-  \draw[dashed, rounded corners] (-0.8,-4.8) rectangle (5.8,-0.5);
-  \node[draw=none, font=\small] at (-1.0,-0.2) {$S$};
-  \node[draw=none, font=\small] at (2.5,-0.2) {$T$};
-\end{tikzpicture}
-\end{center}
-
-The five bold edges are the bipartite crossing (capacity~5); the
-gray edges are internal plumbing.  No matter what happens inside
-$S$ or $T$, flow from $s$ to $t$ cannot exceed~5 through this
-cut.
-
-From the perspective of the cut, the internal structure on each
-side is irrelevant---only the crossing matters:
-
-\begin{center}
-\begin{tikzpicture}[>=Stealth, thick]
-  % Source
-  \node[circle, draw, fill=blue!20, minimum size=6mm, inner sep=0pt]
-    (s) at (0,0) {$s$};
-  % S-side black box
-  \node[draw, fill=black!80, rounded corners, minimum width=1.4cm,
-    minimum height=2.4cm, text=white, font=\small, align=center]
-    (sbox) at (2,0) {$S \setminus \{s\}$};
-  % T-side black box
-  \node[draw, fill=black!80, rounded corners, minimum width=1.4cm,
-    minimum height=2.4cm, text=white, font=\small, align=center]
-    (tbox) at (6,0) {$T \setminus \{t\}$};
-  % Sink
-  \node[circle, draw, fill=red!20, minimum size=6mm, inner sep=0pt]
-    (t) at (8,0) {$t$};
-  % s to S-box
-  \draw[->] (s) -- (sbox);
-  % Cut edges (bipartite crossing)
-  \draw[->, very thick, blue!70!black] (sbox.20) -- (tbox.160);
-  \draw[->, very thick, blue!70!black] (sbox.0) -- (tbox.180);
-  \draw[->, very thick, blue!70!black] (sbox.-20) -- (tbox.200);
-  % T-box to t
-  \draw[->] (tbox) -- (t);
-  % Label
-  \node[draw=none, font=\small] at (4, -1.8)
-    {bipartite crossing: capacity $= 5$};
-\end{tikzpicture}
-\end{center}
-
-The black boxes hide arbitrarily complex subgraphs.  All that
-determines the throughput bound is the capacity of the edges
-between them.
-
-\subsection{Internal Edges Are Lossless Plumbing}
-
-Flow conservation forces every internal node to output exactly
-what it receives.  The subgraph inside $S$ merely \emph{routes}
-flow from $s$ to the cut boundary---it cannot create or destroy
-flow.  Symmetrically, the subgraph inside $T$ routes flow from
-the boundary to $t$.
-
-In our example, $u_1$ and $u_2$ sit inside $S$.  They receive
-flow from $s$ and pass all of it across the cut to $v_1$ and
-$v_2$.  They are plumbing, not bottlenecks.
-
-Therefore, for any cut $(S,T)$:
-\[
-  |f|
-  = \underbrace{\sum_{\substack{u \in S,\, v \in T}} f(u,v)
-    }_{\text{flow across the cut}}
-  - \underbrace{\sum_{\substack{u \in T,\, v \in S}} f(u,v)
-    }_{\text{flow back across}}
-  \le c(S,T).
-\]
-The bottleneck is always at the bipartite crossing, never inside
-either side.
-
-\subsection{Nested Cuts Capture Internal Limits}
-
-An immediate objection: what if the edges \emph{inside} $S$ are
-too narrow to deliver flow to the cut boundary?  Then a tighter
-cut exists that captures the true bottleneck.
-
-Compare two cuts in our flow network:
-
-\begin{center}
-\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
-  inner sep=0pt}, >=Stealth, thick, scale=0.95]
-  \node[fill=blue!20] (s) at (-2, -2.5) {$s$};
-  \node[fill=red!20]  (t) at (5, -2.5)  {$t$};
-  \foreach \i in {1,...,4} {
-    \node (u\i) at (0, -\i) {$u_\i$};
-    \node (v\i) at (3, -\i) {$v_\i$};
-  }
-  % All edges
-  \foreach \i in {1,...,4} {
-    \draw[->] (s)--(u\i);
-    \draw[->] (v\i)--(t);
-  }
-  \draw[->] (u1)--(v1); \draw[->] (u1)--(v2);
-  \draw[->] (u2)--(v1);
-  \draw[->] (u3)--(v2); \draw[->] (u3)--(v3);
-  \draw[->] (u4)--(v3); \draw[->] (u4)--(v4);
-  % Wider cut: S = {s, u1, u2, u3, u4}
-  \draw[dashed, rounded corners, blue!50, thick]
-    (-2.8,-4.8) rectangle (0.8,-0.5);
-  \node[draw=none, font=\small, blue!50] at (-1.0,-0.2)
-    {$S$: cap $= 7$};
-  % Tighter cut: S' = {s}
-  \draw[dashed, rounded corners, orange, thick]
-    (-2.7,-3.2) rectangle (-1.3,-1.8);
-  \node[draw=none, font=\small, orange] at (-2,-3.5)
-    {$S'$: cap $= 4$};
-\end{tikzpicture}
-\end{center}
-
-The wider cut $S = \{s, u_1, u_2, u_3, u_4\}$ has 7 edges
-crossing to $V$ (capacity~7).  But $s$ has only 4 outgoing
-edges, so the internal plumbing cannot deliver more than~4 to the
-boundary.  The tighter cut $S' = \{s\}$ exposes the real
-bottleneck: capacity~4.
-
-Internal limitations never hide from cuts---they just mean the
-minimum cut is closer to $s$ (or $t$).  Every general graph is a
-chain of bipartite bottlenecks; the minimum cut finds the
-tightest one.
-
-% =====================================================================
-\section{Formal Definitions: Flows and Cuts}
-% =====================================================================
-
-We now make the preceding intuition precise.
-
-\subsection{Flow Networks}
-
-\begin{definition}[Network]
-A \textbf{network} is a directed graph $G = (V, E)$ with a
-non-negative capacity function $c : E \to \mathbb{R}_{\ge 0}$
-and no multiple arcs.  Without loss of generality, if
-$(u,v) \in E$ then $(v,u) \in E$ as well (add it with
-$c(v,u) = 0$ if absent).
-\end{definition}
-
-\begin{definition}[Flow network]
-If two vertices are distinguished---a \textbf{source} $s$ and a
-\textbf{sink} $t$---then $(G, c, s, t)$ is a \textbf{flow
-network}.
-\end{definition}
-
-\subsection{Flows}
-
-\begin{definition}[Flow]
-A \textbf{flow} is a function $f : E \to \mathbb{R}_{\ge 0}$
-satisfying:
+\medskip
 \begin{enumerate}
-  \item \textbf{Capacity}: $0 \le f(u,v) \le c(u,v)$ for all
-        $(u,v) \in E$.
-  \item \textbf{Conservation}: for every
-        $v \in V \setminus \{s,t\}$,
-        \[
-          \sum_{u:(u,v)\in E} f(u,v)
-          = \sum_{w:(v,w)\in E} f(v,w).
-        \]
+  \item Set $f(u,v) \gets 0$ for all $(u,v) \in E$.
+  \item While there exists an augmenting path $P$ in $G_f$:
+    \begin{enumerate}
+      \item Let $\delta = \min_{(u,v) \in P} c_f(u,v)$.
+      \item For each forward edge $(u,v) \in P$, set
+            $f(u,v) \gets f(u,v) + \delta$.
+      \item For each backward edge $(v,u) \in P$, set
+            $f(v,u) \gets f(v,u) - \delta$.
+    \end{enumerate}
+  \item Return $f$.
 \end{enumerate}
-\end{definition}
 
-The \textbf{value} of a flow is
-$|f| = \sum_{v:(s,v)\in E} f(s,v)
-     - \sum_{u:(u,s)\in E} f(u,s)$.
+\medskip
 
-\subsection{Cuts}
+\subsection{Example: The General Network}
 
-\begin{definition}[$s$-$t$ cut]
-An \textbf{$s$-$t$ cut} $(S, T)$ is a partition $V = S \cup T$
-with $s \in S$ and $t \in T$.  Its \textbf{capacity} is
+We now return to the general network from Section~1 and trace the
+Ford--Fulkerson algorithm (using BFS) from start to finish.
+Recall the network:
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick]
+  \node[fill=blue!20] (s) at (-2, 0) {$s$};
+  \node (a) at (1, 1.5)  {$a$};
+  \node (c) at (1, -1.5) {$c$};
+  \node (d) at (3.5, 0)  {$d$};
+  \node (b) at (6, 1.5)  {$b$};
+  \node (e) at (6, -1.5) {$e$};
+  \node[fill=red!20] (t) at (8.5, 0) {$t$};
+  \draw[->] (s) -- node[lbl, above left]  {9} (a);
+  \draw[->] (s) -- node[lbl, below left]  {8} (c);
+  \draw[->] (a) -- node[lbl, above]       {4} (b);
+  \draw[->] (a) -- node[lbl, left]        {3} (c);
+  \draw[->] (a) -- node[lbl, above, pos=0.4] {5} (d);
+  \draw[->] (c) -- node[lbl, below, pos=0.4] {4} (d);
+  \draw[->] (c) -- node[lbl, below]       {5} (e);
+  \draw[->] (d) -- node[lbl, above, pos=0.6] {3} (b);
+  \draw[->] (d) -- node[lbl, below, pos=0.6] {3} (e);
+  \draw[->] (b) -- node[lbl, above, pos=0.4] {2} (d);
+  \draw[->] (b) -- node[lbl, above right] {10} (t);
+  \draw[->] (e) -- node[lbl, below right] {10} (t);
+\end{tikzpicture}
+\end{center}
+
+All flows start at zero.  The residual graph initially equals the
+original network.
+
+\paragraph{Iteration 1.}
+BFS from $s$ finds the shortest augmenting path
+$s \to a \to b \to t$.  Bottleneck:
+$\delta = \min(9, 4, 10) = 4$.  Push 4 units.
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{ll}
+  \textbf{Edge} & \textbf{Update} \\
+  \hline
+  $s \to a$ & $f : 0 \to 4$ \\
+  $a \to b$ & $f : 0 \to 4$ \\
+  $b \to t$ & $f : 0 \to 4$ \\
+\end{tabular}
+\end{center}
+
+\medskip
+Total $|f| = 4$.  The edge $a \to b$ is now saturated.
+
+\paragraph{Iteration 2.}
+BFS finds $s \to c \to e \to t$.
+Bottleneck: $\delta = \min(8, 5, 10) = 5$.  Push 5 units.
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{ll}
+  \textbf{Edge} & \textbf{Update} \\
+  \hline
+  $s \to c$ & $f : 0 \to 5$ \\
+  $c \to e$ & $f : 0 \to 5$ \\
+  $e \to t$ & $f : 0 \to 5$ \\
+\end{tabular}
+\end{center}
+
+\medskip
+Total $|f| = 9$.  The edge $c \to e$ is now saturated.
+
+The residual graph after two iterations:
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick]
+  \node[fill=blue!20] (s) at (-2, 0) {$s$};
+  \node (a) at (1, 1.5)  {$a$};
+  \node (c) at (1, -1.5) {$c$};
+  \node (d) at (3.5, 0)  {$d$};
+  \node (b) at (6, 1.5)  {$b$};
+  \node (e) at (6, -1.5) {$e$};
+  \node[fill=red!20] (t) at (8.5, 0) {$t$};
+  % Forward edges (with residual capacity)
+  \draw[->] (s) -- node[lbl, above left]  {5} (a);
+  \draw[->] (s) -- node[lbl, below left]  {3} (c);
+  \draw[->] (a) -- node[lbl, left]        {3} (c);
+  \draw[->] (a) -- node[lbl, above, pos=0.4] {5} (d);
+  \draw[->] (c) -- node[lbl, below, pos=0.4] {4} (d);
+  \draw[->] (d) -- node[lbl, above, pos=0.6] {3} (b);
+  \draw[->] (d) -- node[lbl, below, pos=0.6] {3} (e);
+  \draw[->] (b) -- node[lbl, above, pos=0.4] {2} (d);
+  \draw[->] (b) -- node[lbl, above right] {6} (t);
+  \draw[->] (e) -- node[lbl, below right] {5} (t);
+  % Backward edges (dashed)
+  \draw[->, dashed] (a) to[bend left=15]
+    node[lbl, below] {4} (s);
+  \draw[->, dashed] (b) -- node[lbl, below] {4} (a);
+  \draw[->, dashed] (c) to[bend right=15]
+    node[lbl, above] {5} (s);
+  \draw[->, dashed] (e) -- node[lbl, above] {5} (c);
+  \draw[->, dashed] (t) to[bend left=15]
+    node[lbl, below right] {4} (b);
+  \draw[->, dashed] (t) to[bend right=15]
+    node[lbl, above right] {5} (e);
+\end{tikzpicture}
+\end{center}
+
+The two direct short paths ($s \to a \to b \to t$ and
+$s \to c \to e \to t$) have been partially or fully used.
+All remaining augmenting paths must route through the central
+node~$d$.
+
+\paragraph{Iteration 3.}
+BFS finds the length-4 path $s \to a \to d \to b \to t$.
+Bottleneck: $\delta = \min(5, 5, 3, 6) = 3$.  Push 3 units.
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{ll}
+  \textbf{Edge} & \textbf{Update} \\
+  \hline
+  $s \to a$ & $f : 4 \to 7$ \\
+  $a \to d$ & $f : 0 \to 3$ \\
+  $d \to b$ & $f : 0 \to 3$ \\
+  $b \to t$ & $f : 4 \to 7$ \\
+\end{tabular}
+\end{center}
+
+\medskip
+Total $|f| = 12$.  The edge $d \to b$ is now saturated; flow
+now enters $b$ from two sources ($a$ and~$d$).
+
+\paragraph{Iteration 4.}
+With $d \to b$ saturated, BFS finds
+$s \to a \to d \to e \to t$.
+Bottleneck: $\delta = \min(2, 2, 3, 5) = 2$.  Push 2 units.
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{ll}
+  \textbf{Edge} & \textbf{Update} \\
+  \hline
+  $s \to a$ & $f : 7 \to 9$ \\
+  $a \to d$ & $f : 3 \to 5$ \\
+  $d \to e$ & $f : 0 \to 2$ \\
+  $e \to t$ & $f : 5 \to 7$ \\
+\end{tabular}
+\end{center}
+
+\medskip
+Total $|f| = 14$.  The edges $s \to a$ and $a \to d$ are now
+saturated.
+
+\paragraph{Iteration 5.}
+With $s \to a$ saturated, the only forward edge from $s$ is
+$s \to c$ (residual capacity~3).  BFS explores: from $c$, the
+edge $c \to e$ is saturated, so only $c \to d$ (capacity~4) is
+available.  From $d$, both $d \to b$ and $d \to e$ have limited
+residual capacity.
+
+BFS finds $s \to c \to d \to e \to t$.
+Bottleneck: $\delta = \min(3, 4, 1, 3) = 1$.  Push 1 unit.
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{ll}
+  \textbf{Edge} & \textbf{Update} \\
+  \hline
+  $s \to c$ & $f : 5 \to 6$ \\
+  $c \to d$ & $f : 0 \to 1$ \\
+  $d \to e$ & $f : 2 \to 3$ \\
+  $e \to t$ & $f : 7 \to 8$ \\
+\end{tabular}
+\end{center}
+
+\medskip
+Total $|f| = 15$.  The edge $d \to e$ is now saturated.
+
+\paragraph{Termination.}
+BFS from $s$: the only forward edge is $s \to c$ (residual
+capacity~2).  From $c$, we reach $d$ (via $c \to d$, capacity~3).
+From $d$, both $d \to b$ and $d \to e$ are saturated.  The
+backward edge from $d$ reaches $a$, but from $a$ all forward
+edges are saturated.  No path to $t$ exists.  The algorithm
+terminates with maximum flow $|f^*| = 15$.
+
+The final flow on every edge:
+
+\begin{center}
+\begin{tikzpicture}[every node/.style={circle, draw, minimum size=6mm,
+  inner sep=0pt}, >=Stealth, thick,
+  snode/.style={draw=blue, line width=1.5pt},
+  tnode/.style={draw=red, line width=1.5pt}]
+  \node[snode, fill=blue!20] (s) at (-2, 0) {$s$};
+  \node[snode] (a) at (1, 1.5)  {$a$};
+  \node[snode] (c) at (1, -1.5) {$c$};
+  \node[snode] (d) at (3.5, 0)  {$d$};
+  \node[tnode] (b) at (6, 1.5)  {$b$};
+  \node[tnode] (e) at (6, -1.5) {$e$};
+  \node[tnode, fill=red!20] (t) at (8.5, 0) {$t$};
+  % internal S edges (gray)
+  \draw[->] (s) -- node[lbl, above left] {$9/9$} (a);
+  \draw[->] (s) -- node[lbl, below left] {$6/8$} (c);
+  \draw[->, gray] (a) -- node[lbl, left] {$0/3$} (c);
+  \draw[->] (a) -- node[lbl, above, pos=0.4] {$5/5$} (d);
+  \draw[->] (c) -- node[lbl, below, pos=0.4] {$1/4$} (d);
+  % cut edges (blue, bold) -- from S to T
+  \draw[->, line width=2pt, blue!70!black] (a) --
+    node[lbl, above] {$4/4$} (b);
+  \draw[->, line width=2pt, blue!70!black] (c) --
+    node[lbl, below] {$5/5$} (e);
+  \draw[->, line width=2pt, blue!70!black] (d) --
+    node[lbl, above, pos=0.6] {$3/3$} (b);
+  \draw[->, line width=2pt, blue!70!black] (d) --
+    node[lbl, below, pos=0.6] {$3/3$} (e);
+  % internal T edges (gray)
+%  \draw[->, gray] (b) -- node[lbl, above, pos=0.4] {$0/2$} (d);
+  \draw[->] (b) -- node[lbl, above right] {$7/10$} (t);
+  \draw[->] (e) -- node[lbl, below right] {$8/10$} (t);
+\end{tikzpicture}
+\end{center}
+
+Verify conservation at each node:
+\begin{itemize}
+  \item $a$: in $= 9$, out $= 4 + 0 + 5 = 9$.
+  \item $b$: in $= 4 + 3 = 7$, out $= 0 + 7 = 7$.
+  \item $c$: in $= 6 + 0 = 6$, out $= 1 + 5 = 6$.
+  \item $d$: in $= 5 + 1 = 6$, out $= 3 + 3 = 6$.
+  \item $e$: in $= 5 + 3 = 8$, out $= 8$.
+\end{itemize}
+
+\paragraph{The minimum cut.}
+The vertices reachable from $s$ in the final residual graph are
+$S^* = \{s, a, c, d\}$: from $s$ we reach $c$ (residual
+capacity~2 on $s \to c$); from $c$ we reach $d$ (via $c \to d$,
+residual~3); from $d$ we reach $a$ via the backward edge
+(since $a \to d$ carries flow~5).  But from none of these can we
+reach $b$, $e$, or $t$---every crossing edge is saturated.
+
+The minimum cut is
+$(\{s, a, c, d\},\; \{b, e, t\})$ with capacity
 \[
-  c(S,T) = \sum_{\substack{u \in S,\, v \in T \\ (u,v) \in E}}
-           c(u,v).
+  c(a, b) + c(d, b) + c(c, e) + c(d, e)
+  = 4 + 3 + 5 + 3 = 15 = |f^*|.
 \]
-\end{definition}
 
-A cut is a bottleneck: it bounds the maximum flow that can cross
-from the $s$-side to the $t$-side.
+This confirms the max-flow min-cut theorem: the maximum flow
+equals the capacity of the tightest bottleneck.  The bottleneck
+is not at $s$ (total outgoing capacity~17) or at $t$ (total
+incoming capacity~20), but at the internal boundary between
+$\{s, a, c, d\}$ and $\{b, e, t\}$---the four edges that cross
+from the source side to the sink side are all fully saturated.
 
 % =====================================================================
 \section{The Max-Flow Min-Cut Theorem}
@@ -693,37 +983,11 @@ The following are equivalent: (i)~$f$ is a maximum flow;
 (ii)~there is no augmenting path in the residual graph $G_f$;
 (iii)~$|f| = c(S,T)$ for some cut $(S,T)$.
 
-\subsection{Residual Graph}
+\subsection{Proof}
 
-Given flow $f$, the \textbf{residual graph} $G_f = (V, E_f)$
-contains a \textbf{forward edge} $(u,v)$ with capacity
-$c_f(u,v) = c(u,v) - f(u,v)$ whenever this is positive, and a
-\textbf{backward edge} $(v,u)$ with capacity $c_f(v,u) = f(u,v)$
-whenever $f(u,v) > 0$.  An \textbf{augmenting path} is any
-$s \to t$ path in $G_f$.  Backward edges allow the algorithm to
-undo previously pushed flow---the same mechanism as augmenting
-paths in matching.
-
-\subsection{Proof of Weak Duality}
-
-\textbf{Claim.} For any flow $f$ and any cut $(S,T)$,
-$|f| \le c(S,T)$.
-
-\begin{proof}
-By flow conservation the net flow leaving $S$ equals $|f|$:
-\begin{align*}
-  |f|
-  &= \sum_{\substack{u \in S,\, v \in T}}  f(u,v)
-   - \sum_{\substack{u \in T,\, v \in S}}  f(u,v)
-  \le \sum_{\substack{u \in S,\, v \in T}}  f(u,v)
-  \le \sum_{\substack{u \in S,\, v \in T}}  c(u,v)
-  = c(S,T).
-\end{align*}
-The first inequality drops a non-negative term; the second uses
-the capacity constraint.
-\end{proof}
-
-\subsection{Proof of Strong Duality}
+In Section~1 we showed that $|f| \le c(S,T)$ for every flow $f$
+and every cut $(S,T)$.  It remains to show that equality is
+achieved.
 
 \textbf{Claim.} There exist $f^*$ and $(S^*,T^*)$ with
 $|f^*| = c(S^*,T^*)$.
@@ -748,85 +1012,16 @@ reachable via a backward edge.  Therefore
   = c(S^*,T^*) - 0
   = c(S^*,T^*).
 \]
-By weak duality $f^*$ is maximum and $(S^*,T^*)$ is minimum.
+Since every cut bounds every flow, $f^*$ is a maximum flow and
+$(S^*,T^*)$ is a minimum cut.
 \end{proof}
 
 % =====================================================================
-\section{Algorithm and Examples}
-% =====================================================================
-
-\subsection{Ford--Fulkerson}
-
-\noindent\textbf{Input:} Flow network $(G, c, s, t)$.\\
-\textbf{Output:} Maximum flow $f$.
-
-\medskip
-\begin{enumerate}
-  \item Set $f(u,v) \gets 0$ for all $(u,v) \in E$.
-  \item While there exists an augmenting path $P$ in $G_f$:
-    \begin{enumerate}
-      \item Let $\delta = \min_{(u,v) \in P} c_f(u,v)$.
-      \item For each forward edge $(u,v) \in P$, set
-            $f(u,v) \gets f(u,v) + \delta$.
-      \item For each backward edge $(v,u) \in P$, set
-            $f(v,u) \gets f(v,u) - \delta$.
-    \end{enumerate}
-  \item Return $f$.
-\end{enumerate}
-
-\medskip
-The \textbf{Edmonds--Karp} variant uses BFS to find the shortest
-augmenting path, giving worst-case complexity $O(VE^2)$.
-
-\subsection{Example}
-
-We trace the algorithm on a small network: start with zero flow,
-find an augmenting $s$-$t$ path in the residual graph, push flow
-along it, update the residual graph (forward edges shrink,
-backward edges appear), and repeat.  When no path exists, the
-vertices reachable from $s$ in the final residual graph form
-$S^*$; the cut $(S^*, V \setminus S^*)$ is the minimum cut.
-
-% =====================================================================
-\section{Summary and Related Results}
+\section{Related Results}
 % =====================================================================
 
 The max-flow min-cut theorem is the cornerstone of a family of
-duality results in combinatorics.
-
-\subsection{Hall's Theorem}
-
-\begin{theorem}[Hall, 1935]
-A bipartite graph $G = (U \cup V, E)$ has a matching saturating
-every vertex in $U$ iff $|N(S)| \ge |S|$ for all
-$S \subseteq U$.
-\end{theorem}
-
-Hall's condition is equivalent to every $s$-$t$ cut having
-capacity at least $|U|$ in the corresponding flow network.
-
-\subsection{Birkhoff--von Neumann Theorem}
-
-\begin{theorem}[Birkhoff, 1946; von Neumann, 1953]
-Every doubly stochastic matrix is a convex combination of
-permutation matrices.
-\end{theorem}
-
-A doubly stochastic matrix has non-negative entries with rows
-and columns summing to~1.  The theorem says the LP relaxation of
-bipartite matching has no integrality gap: any fractional
-matching decomposes into integer matchings.
-
-\subsection{K\"onig--Egerv\'ary Theorem}
-
-\begin{theorem}[K\"onig, 1931; Egerv\'ary, 1931]
-In a bipartite graph, the size of a maximum matching equals the
-size of a minimum vertex cover.
-\end{theorem}
-
-A vertex cover is a set of vertices touching every edge.  The
-minimum vertex cover corresponds to a minimum cut in the flow
-network.
+results in combinatorics.
 
 \subsection{Menger's Theorem}
 
@@ -840,22 +1035,37 @@ The edge-disjoint version---max edge-disjoint paths equals min
 edge cut---is a direct corollary of max-flow min-cut with unit
 capacities.
 
-\subsection{Unifying View}
+\subsection{K\"onig--Egerv\'ary Theorem}
 
-\begin{center}
-\renewcommand{\arraystretch}{1.3}
-\begin{tabular}{l|l}
-  \textbf{Result} & \textbf{Says} \\
-  \hline
-  Max-flow min-cut & max throughput $=$ min bottleneck \\
-  Hall & perfect matching $\iff$ no small neighbourhood \\
-  Birkhoff--von Neumann & fractional matching $=$ integer matching \\
-  K\"onig--Egerv\'ary & max matching $=$ min vertex cover \\
-  Menger & max disjoint paths $=$ min separator
-\end{tabular}
-\end{center}
+\begin{theorem}[K\"onig, 1931; Egerv\'ary, 1931]
+In a bipartite graph, the size of a maximum matching equals the
+size of a minimum vertex cover.
+\end{theorem}
 
-All are facets of the same duality: \textbf{what you can push
-through a network equals what it takes to block it}.
+A vertex cover is a set of vertices touching every edge.  The
+minimum vertex cover corresponds to a minimum cut in the flow
+network.
+
+\subsection{Birkhoff--von Neumann Theorem}
+
+\begin{theorem}[Birkhoff, 1946; von Neumann, 1953]
+Every doubly stochastic matrix is a convex combination of
+permutation matrices.
+\end{theorem}
+
+A \textbf{doubly stochastic matrix} is a square matrix with
+non-negative entries whose rows each sum to~1 and whose columns
+each sum to~1.  A \textbf{permutation matrix} is the special case
+where every entry is 0 or 1---it picks exactly one entry per row
+and one per column (i.e.\ a perfect matching).
+
+The theorem says that every doubly stochastic matrix can be
+written as a weighted average of permutation matrices.  In the
+language of matchings: if we allow fractional matchings (assigning
+a weight between 0 and 1 to each edge, so that every vertex's
+weights sum to at most~1), then the optimal fractional matching
+has the same value as the optimal integer matching.  Relaxing the
+problem to allow fractions does not help---the integer solution
+is already optimal.
 
 \end{document}
